@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-01 — Power BI emulation Day 5 (ejecución anticipada)
+
+- Added DAX Level 1 evaluator over local in-memory datasets.
+- Added initial per-table filter context and basic row context.
+- Added column/literal evaluation and controlled `COUNTROWS(Table)` table references.
+- Added `SUM`, `COUNT`, `COUNTA`, `COUNTROWS`, `DISTINCTCOUNT`, `AVERAGE`, `MIN` and `MAX`.
+- Added `DIVIDE`, `IF`, `SWITCH` and `COALESCE` with lazy branch evaluation where applicable.
+- Added explicit BLANK/null semantics and stable Decimal arithmetic.
+- Added structured evaluation errors for missing tables/columns, scalar misuse, incompatible types and unsafe raw division by zero.
+- Added measure evaluation against the same filter context.
+- Added Level 1 golden results and regression coverage for the Day 4 parser.
+- `CALCULATE`, Level 2 filters and relationship propagation remain deliberately unavailable until Day 6.
+
 ## 2026-09-01 — Power BI emulation Day 4 (ejecución anticipada)
 
 - Added controlled DAX lexer and precedence parser.
@@ -9,7 +22,6 @@
 - Added expression length, token, nesting-depth and AST-complexity limits.
 - Added deterministic rejection of unknown functions, ambiguous references/comparisons and non-DAX syntax.
 - Added published parser function catalog plus AST golden and parser-security tests.
-- DAX evaluation remains intentionally unavailable until Days 5–6.
 
 ## 2026-09-01 — Power BI emulation Day 3 (ejecución anticipada)
 

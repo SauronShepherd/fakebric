@@ -11,15 +11,19 @@ uvicorn fakebric.app:app --reload
 
 Power BI emulation is under active development on `codex/powerbi-emulation` following `POWERBI_EMULATION_SPEC.md` and `POWERBI_EMULATION_BUILD_PLAN_13_DAYS.md`. The implementation is Linux-first and intentionally exposes only documented compatible behavior.
 
-Days 1–3 established versioned semantic/report contracts, typed tables/sources, relationships and structured model validation.
+Days 1–3 established versioned semantic/report contracts, typed tables/sources, relationships and structured model validation. Day 4 added a controlled DAX lexer/parser and immutable JSON-serializable AST with limits and structured diagnostics.
 
-Day 4 adds a controlled DAX lexer/parser and immutable JSON-serializable AST. It supports qualified references, literals, arithmetic/comparison/boolean operators, parentheses and a published function catalog. Diagnostics include line, column, token and error code, and parser limits cap expression length, tokens, depth and AST complexity. Unknown functions and ambiguous/non-DAX syntax fail deterministically.
-
-**Parser acceptance does not mean execution support.** DAX evaluation and Level 1 aggregation semantics begin on Day 5. See `docs/DAX_FUNCTION_CATALOG.md` for the accepted syntax/function catalog.
+Day 5 adds local DAX Level 1 evaluation over in-memory datasets: initial filter context, row context, literals/column evaluation, `SUM`, `COUNT`, `COUNTA`, `COUNTROWS`, `DISTINCTCOUNT`, `AVERAGE`, `MIN`, `MAX`, `DIVIDE`, `IF`, `SWITCH` and `COALESCE`. Results use `Decimal` for stable numeric behavior and preserve BLANK distinctly from zero. See `docs/DAX_LEVEL1_SEMANTICS.md`.
 
 ```bash
-python -m pytest -q tests/test_dax_parser.py tests/test_dax_golden.py tests/test_dax_security.py
+python -m pytest -q \
+  tests/test_dax_parser.py \
+  tests/test_dax_golden.py \
+  tests/test_dax_security.py \
+  tests/test_dax_evaluator.py
 ```
+
+Level 2 functions such as `CALCULATE`, `FILTER`, `ALL` and relationship-driven filter propagation parse but deliberately fail at evaluation until Day 6.
 
 Parquet support uses `pyarrow` from `requirements.txt`. File-backed sources are resolved under a caller-supplied workspace root; traversal and absolute paths outside that root are rejected.
 
@@ -31,6 +35,4 @@ python -m compileall -q fakebric tools tests
 node --check fakebric/static/app.js
 ```
 
-Semantic Model and Report are represented as extensible item types. DAX parsing is now partial; DAX evaluation, report rendering, RLS and later capabilities remain unavailable until their scheduled increments.
-
-The exact implemented/partial/unsupported scope is maintained in `REQUIREMENTS_MATRIX.md`; unsupported capabilities are deliberately not advertised as available.
+Semantic Model and Report are represented as extensible item types. The exact implemented/partial/unsupported scope is maintained in `REQUIREMENTS_MATRIX.md`; unsupported capabilities are deliberately not advertised as available.

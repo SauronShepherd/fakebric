@@ -12,8 +12,8 @@ Estados: `implemented` = evidencia automatizada o de runtime; `partial` = contra
 | SemanticModel contracts | partial | Días 1–3: tablas/columnas/medidas/fuentes, relaciones 1:1/1:N/N:M, PK/date table, validador estructurado | jerarquías/perspectivas y semántica completa |
 | Model validation | partial | ciclos, ambigüedad, duplicados, tipos incompatibles y endpoint `/api/v1/models/{id}/validate` | integración persistida completa y validación DAX más profunda |
 | Power BI data sources | partial | CSV, JSONL, Parquet y tablas Fakebrick; inferencia/perfiles | SQL registrado y storage durable |
-| DAX parser | partial | Día 4: lexer, precedencia, AST inmutable/serializable, referencias calificadas, literales, diagnósticos, límites, catálogo y golden/security tests | evaluación y semántica de contexto Días 5–6 |
-| DAX evaluation | unsupported | no se ejecuta AST todavía | Día 5 Nivel 1 y Día 6 contexto/filtros |
+| DAX parser | partial | Día 4: lexer, precedencia, AST inmutable/serializable, referencias calificadas, literales, diagnósticos, límites y catálogo | ampliar gramática según niveles posteriores |
+| DAX evaluation | partial | Día 5: contexto de filtro inicial/row context, evaluación de columnas/literales, agregaciones N1, DIVIDE/IF/SWITCH/COALESCE, BLANK y Decimal; golden tests | Día 6: CALCULATE, funciones de filtro, propagación de relaciones, precedencia de filtros y transición de contexto |
 | Query engine Power BI | unsupported | todavía sin planner/ejecutor/caché | Día 7 |
 | Reports Power BI | partial | contrato base `Report` | páginas/visuales/runtime Días 8–9 |
 | CI/release | partial | tests focalizados y checks estáticos definidos | suite completa, Parquet runtime y gates Días 10–13 |
@@ -21,4 +21,4 @@ Estados: `implemented` = evidencia automatizada o de runtime; `partial` = contra
 
 ## Gate actual
 
-La batería reconstruida del Día 4 ejecutó 32 tests correctamente incluyendo parser, golden/security tests y regresión semántica local. `compileall` y `git diff --check` fueron PASS en ese incremento. El commit remoto del parser conserva el alcance de Día 4 sin afirmar ejecución DAX. No se considera validada todavía la suite histórica completa ni el E2E Power BI.
+La batería reconstruida del Día 5 ejecutó 35 tests correctamente: 17 del evaluador N1 y regresión del parser/golden/security del Día 4. `python -m compileall -q fakebric tests` fue PASS. La rama no había avanzado en paralelo antes del commit funcional. No se considera validada todavía la suite histórica completa, el runtime Parquet ni el E2E Power BI.
