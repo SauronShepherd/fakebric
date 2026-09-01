@@ -1,3 +1,37 @@
-from .schema import SemanticModel
+from .schema import Column, DataSource, DataSourceType, DataType, Measure, SemanticModel, Table
+from .sources import (
+    ColumnInference,
+    ConversionError,
+    DatasetProfile,
+    DatasetStatistics,
+    LoadedDataset,
+    MissingColumnError,
+    SourceError,
+    SourceLoader,
+    SourceSecurityError,
+    convert_value,
+    dataset_statistics,
+    infer_schema,
+)
 
-__all__ = ["SemanticModel"]
+__all__ = [
+    "Column",
+    "ColumnInference",
+    "ConversionError",
+    "DataSource",
+    "DataSourceType",
+    "DataType",
+    "DatasetProfile",
+    "DatasetStatistics",
+    "LoadedDataset",
+    "Measure",
+    "MissingColumnError",
+    "SemanticModel",
+    "SourceError",
+    "SourceLoader",
+    "SourceSecurityError",
+    "Table",
+    "convert_value",
+    "dataset_statistics",
+    "infer_schema",
+]

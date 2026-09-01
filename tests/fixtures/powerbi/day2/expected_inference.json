@@ -1,0 +1,26 @@
+[
+  {
+    "name": "id",
+    "suggestedType": "integer",
+    "nullable": false,
+    "confidence": 1.0
+  },
+  {
+    "name": "amount",
+    "suggestedType": "decimal",
+    "nullable": true,
+    "confidence": 1.0
+  },
+  {
+    "name": "active",
+    "suggestedType": "boolean",
+    "nullable": false,
+    "confidence": 1.0
+  },
+  {
+    "name": "sold_at",
+    "suggestedType": "date",
+    "nullable": false,
+    "confidence": 1.0
+  }
+]

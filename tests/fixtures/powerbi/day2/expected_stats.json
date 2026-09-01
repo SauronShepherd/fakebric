@@ -1,0 +1,40 @@
+{
+  "columns": {
+    "active": {
+      "cardinality": 2,
+      "max": true,
+      "min": false,
+      "nulls": 0,
+      "rows": 2
+    },
+    "amount": {
+      "cardinality": 2,
+      "max": "20",
+      "min": "10.50",
+      "nulls": 0,
+      "rows": 2
+    },
+    "id": {
+      "cardinality": 2,
+      "max": 2,
+      "min": 1,
+      "nulls": 0,
+      "rows": 2
+    },
+    "note": {
+      "cardinality": 1,
+      "max": "first",
+      "min": "first",
+      "nulls": 1,
+      "rows": 2
+    },
+    "sold_at": {
+      "cardinality": 2,
+      "max": "2026-09-02",
+      "min": "2026-09-01",
+      "nulls": 0,
+      "rows": 2
+    }
+  },
+  "rowCount": 2
+}
