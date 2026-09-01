@@ -15,7 +15,7 @@ jobs:
       - name: Static checks
         shell: bash
         run: |
-          python -m compileall -q fakebric tools tests runtime/runtime_versions.py
+          python -m compileall -q fakebric tools tests runtime/runtime_versions.py runtime/native_smoke.py
           python tools/production_gate.py --profile local
           python -m json.tool runtime/native-sbom.spdx.json >/dev/null
           node --check fakebric/static/app.js
@@ -97,12 +97,31 @@ jobs:
           grep -Fq '"nativeExecutionEnabled": "false"' native-runtime-versions.json
           grep -Fq 'gluten=1.6.0' native-runtime-versions.json
           grep -Fq 'velox=34338bfe5a95c895c90bb8fbbe2dfeeb04466087' native-runtime-versions.json
-          docker run --rm --entrypoint sh fakebric-runtime-native:ci -c 'test -w /workspace && test -w /tmp/spark && tini --version >/dev/null 2>&1 && test -s /opt/fakebric/native-sbom.spdx.json && test -s /opt/fakebric/native-artifact-checksums.txt && find /opt/gluten -type f -print -quit | grep -q .'
+          docker run --rm --entrypoint sh fakebric-runtime-native:ci -c 'test -w /workspace && test -w /tmp/spark && tini --version >/dev/null 2>&1 && test -s /opt/fakebric/native-sbom.spdx.json && test -s /opt/fakebric/native-artifact-checksums.txt && test -f /opt/gluten/gluten-velox-bundle.jar'
       - name: Start Spark JVM path inside native-capable image with plugin disabled
         shell: bash
         run: |
           set -euo pipefail
           docker run --rm --memory=3g --cpus=2 --entrypoint python fakebric-runtime-native:ci -c 'from pyspark.sql import SparkSession; s=SparkSession.builder.master("local[1]").appName("fakebric-day2-jvm-smoke").config("spark.ui.enabled","false").getOrCreate(); assert s.range(10).count() == 10; assert s.conf.get("spark.plugins", "") == ""; print("fakebric-native-image-jvm-path-ok"); s.stop()'
+      - name: Verify controlled native initialization failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          docker run --rm --memory=3g --cpus=2 -e GLUTEN_BUNDLE_JAR=/opt/gluten/missing.jar --entrypoint python fakebric-runtime-native:ci /opt/fakebric/native_smoke.py > native-init-failure.json
+          rc=$?
+          set -e
+          test "$rc" -eq 20
+          grep -Fq '"errorCode": "NATIVE_INIT_FAILED"' native-init-failure.json
+      - name: Execute Gluten Velox native smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --memory=3g --cpus=2 --entrypoint python fakebric-runtime-native:ci /opt/fakebric/native_smoke.py > native-smoke.json
+          cat native-smoke.json
+          grep -Fq '"ok": true' native-smoke.json
+          grep -Fq 'org.apache.gluten.GlutenPlugin' native-smoke.json
+          grep -Eq 'WholeStageTransformer|ProjectExecTransformer|FilterExecTransformer|VeloxColumnarToRowExec' native-smoke.json
       - name: Validate Kubernetes manifest YAML structure offline
         shell: bash
         run: |
