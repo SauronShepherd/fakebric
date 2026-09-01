@@ -22,7 +22,7 @@ jobs:
       - name: Static checks
         run: |
           python -m compileall -q fakebric tools tests
-          python tools/production_gate.py
+          python tools/production_gate.py --profile local
           node --check fakebric/static/app.js
   images-and-manifests:
     runs-on: ubuntu-latest
