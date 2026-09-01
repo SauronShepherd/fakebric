@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from .ast import BinaryOp, Expression, FunctionCall, Literal, Reference, UnaryOp
+from .ast import BinaryOp, Expression, FunctionCall, Literal, Reference, TableReference, UnaryOp
 from .errors import DaxDiagnostic, DaxError
 from .functions import get_function
 from .lexer import Token, lex_dax
@@ -63,6 +63,12 @@ class Parser:
             self._advance(); return expression
         if token.kind=="EOF": raise self._error("DAX_INCOMPLETE_EXPRESSION","Expression ended before an operand was provided")
         raise self._error("DAX_EXPECTED_EXPRESSION","Expected a literal, reference, function or parenthesized expression")
+    def _function_argument(self,name:str,position:int,depth:int)->Expression:
+        if name=="COUNTROWS" and position==0 and self.current.kind=="IDENT":
+            next_kind=self.tokens[self.index+1].kind
+            if next_kind in {"RPAREN","COMMA"}:
+                token=self._advance(); return self._node(TableReference(token.value),token)
+        return self._expression(0,depth+1)
     def _function_call(self,name_token:Token,depth:int)->Expression:
         if depth>self.limits.max_depth: raise self._error("DAX_LIMIT_DEPTH",f"Expression exceeds depth limit {self.limits.max_depth}",name_token)
         name=name_token.value.upper(); self._advance()
@@ -74,7 +80,7 @@ class Parser:
         arguments=[]
         if self.current.kind!="RPAREN":
             while True:
-                arguments.append(self._expression(0,depth+1))
+                arguments.append(self._function_argument(name,len(arguments),depth))
                 if self.current.kind!="COMMA": break
                 comma=self._advance()
                 if self.current.kind=="RPAREN": raise self._error("DAX_TRAILING_COMMA","Trailing comma is not allowed",comma)

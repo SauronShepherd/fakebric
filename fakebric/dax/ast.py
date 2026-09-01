@@ -32,6 +32,14 @@ class Reference(Expr):
 
 
 @dataclass(frozen=True, slots=True)
+class TableReference(Expr):
+    table: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"kind": "tableReference", "table": self.table}
+
+
+@dataclass(frozen=True, slots=True)
 class UnaryOp(Expr):
     operator: str
     operand: "Expression"
@@ -68,7 +76,7 @@ class FunctionCall(Expr):
         }
 
 
-Expression: TypeAlias = Literal | Reference | UnaryOp | BinaryOp | FunctionCall
+Expression: TypeAlias = Literal | Reference | TableReference | UnaryOp | BinaryOp | FunctionCall
 
 
 def collect_references(expression: Expression) -> tuple[Reference, ...]:

@@ -1,0 +1,9 @@
+{
+  "SUM(Sales[Amount])": "30.50",
+  "AVERAGE(Sales[Amount])": "15.25",
+  "DISTINCTCOUNT(Sales[Category])": 3,
+  "COUNTROWS(Sales)": 3,
+  "DIVIDE(SUM(Sales[Amount]), 2)": "15.25",
+  "COALESCE(BLANK(), 7)": 7,
+  "IF(SUM(Sales[Amount]) > 20, 1, 0)": 1
+}
