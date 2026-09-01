@@ -55,10 +55,9 @@ jobs:
       - name: Execute Spark notebook smoke test
         run: |
           docker run --rm --user 10001:10001 \
-            -v "$PWD/runtime:/workspace/runtime" \
-            --entrypoint python fakebric-runtime:ci \
-            /opt/fakebric/execute_notebook.py /workspace/runtime/spark_smoke.ipynb --timeout 120
-          grep -q "fakebric-spark-ok" runtime/spark_smoke.ipynb
+            -v "$PWD/runtime:/workspace/runtime:ro" \
+            --entrypoint /bin/sh fakebric-runtime:ci \
+            -c 'python /opt/fakebric/execute_notebook.py /workspace/runtime/spark_smoke.ipynb --output /tmp/spark_smoke.ipynb --timeout 120 && grep -q "fakebric-spark-ok" /tmp/spark_smoke.ipynb'
       - name: Validate Kubernetes manifests
         shell: bash
         run: |
