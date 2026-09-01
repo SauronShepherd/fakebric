@@ -20,8 +20,23 @@ def test_native_runtime_is_separate_and_checksum_locked():
     assert "sha512sum -c -" in dockerfile
     assert "sha256sum -c -" in dockerfile
     assert "FAKEBRIC_NATIVE_EXECUTION_ENABLED=false" in dockerfile
-    assert "pip install" in dockerfile
-    assert "spark-3.5" not in dockerfile.lower() or "apache-gluten" in dockerfile.lower()
+    assert "gluten-velox-bundle-spark3.5_2.12-linux_amd64-1.6.0.jar" in dockerfile
+    assert "GLUTEN_BUNDLE_JAR=/opt/gluten/gluten-velox-bundle.jar" in dockerfile
+
+
+def test_native_smoke_uses_approved_plugin_without_changing_default():
+    smoke = (ROOT / "runtime" / "native_smoke.py").read_text(encoding="utf-8")
+    assert 'GLUTEN_PLUGIN = "org.apache.gluten.GlutenPlugin"' in smoke
+    assert 'GLUTEN_SHUFFLE = "org.apache.spark.shuffle.sort.ColumnarShuffleManager"' in smoke
+    assert '"spark.plugins", GLUTEN_PLUGIN' in smoke
+    assert '"spark.shuffle.manager", GLUTEN_SHUFFLE' in smoke
+    assert '"NATIVE_INIT_FAILED"' in smoke
+    assert "WholeStageTransformer" in smoke
+    lock = json.loads((ROOT / "runtime-1.3.lock.json").read_text(encoding="utf-8"))
+    assert lock["native"]["enabledByDefault"] is False
+    assert lock["native"]["defaultMode"] == "jvm"
+    assert lock["native"]["status"] == "plugin-smoke-validated"
+    assert lock["native"]["pluginClass"] == "org.apache.gluten.GlutenPlugin"
 
 
 def test_preliminary_native_sbom_tracks_locked_components():
