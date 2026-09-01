@@ -1,36 +1,30 @@
 # Changelog
 
+## 2026-09-01 — Power BI emulation Day 4 (ejecución anticipada)
+
+- Added controlled DAX lexer and precedence parser.
+- Added immutable, JSON-serializable AST nodes for literals, references, unary/binary operators and function calls.
+- Added qualified table/member references, strings, numbers and DAX `dt"..."` date/datetime literals.
+- Added structured diagnostics with code, line, column, token and message.
+- Added expression length, token, nesting-depth and AST-complexity limits.
+- Added deterministic rejection of unknown functions, ambiguous references/comparisons and non-DAX syntax.
+- Added published parser function catalog plus AST golden and parser-security tests.
+- DAX evaluation remains intentionally unavailable until Days 5–6.
+
 ## 2026-09-01 — Power BI emulation Day 3 (ejecución anticipada)
 
 - Added typed relationships for one-to-one, one-to-many and many-to-many cardinalities.
 - Added single/both filter direction and active/inactive relationship behavior.
 - Added primary-key and date-table metadata.
-- Added structured dependency references for tables, columns and measures without prematurely parsing DAX.
-- Added model validation for missing tables/columns, type mismatch, duplicate relationships, cycles and ambiguous paths.
-- Added dependency-cycle detection and structured diagnostics with severity, code, location and suggested fix.
+- Added structured dependency references and structured model validation.
 - Added `POST /api/v1/models/{id}/validate` on the semantic-model service/router.
-- Added propagation/filter-graph evidence and regression coverage for Day 1–2 contracts.
 
 ## 2026-09-01 — Power BI emulation Day 2 (ejecución anticipada)
 
 - Added `Table`, `Column`, `Measure` and `DataSource` semantic contracts.
-- Added string, integer, decimal, boolean, date, datetime and binary types.
-- Added workspace-confined readers for CSV, JSONL and Parquet plus registered local Fakebrick tables.
-- Added explicit conversion with deterministic rejection of invalid values and nullability violations.
-- Added reviewable schema inference with confidence and nullable metadata.
-- Added dataset profiles with row count, nulls, min, max and cardinality.
-- Added duplicate-table/column/measure validation and missing-source-column diagnostics.
-- Added source-path traversal protection and rejection of inline credential-like options; credentials use `credentialRef`.
-- Added deterministic fixtures for inference/statistics and focused tests.
-- Added `pyarrow` as the Parquet dependency.
-- Relationships, DAX, query execution and report visuals remain outside this increment.
+- Added supported scalar types, CSV/JSONL/Parquet/Fakebrick sources, inference, conversion, profiles and path security.
 
 ## 2026-09-01 — Power BI emulation Day 1
 
 - Added versioned Pydantic contracts for `SemanticModel` and `Report`.
-- Added lifecycle states `Draft`, `Published`, and `Archived`.
-- Added standard Power BI emulation error codes.
-- Added deterministic canonical serialization and SHA-256 ETags.
-- Added an optimistic-concurrency revision repository and migration registry scaffolding.
-- Added `FAKEBRIC_POWERBI_EMULATION`, disabled by default.
-- Added JSON Schemas and focused contract tests.
+- Added lifecycle states, standard errors, deterministic ETags, revision repository, migration scaffold and feature flag.
