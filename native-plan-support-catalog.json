@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "2026-09-01.level-a.v1",
+  "runtimeProfile": "spark-3.5.5-gluten-1.6.0-velox-x86_64",
+  "requiredScanFormat": "parquet",
+  "unknownOperatorPolicy": "fallback",
+  "logicalOperators": {
+    "supported": ["Project","Filter","Aggregate","Join","Sort","GlobalLimit","LocalLimit","SubqueryAlias","Relation","Range","ResolvedHint"],
+    "fallback": ["Window","Generate","Expand","Union","Intersect","Except","Deduplicate","Repartition","RepartitionByExpression","LogicalRDD","DeserializeToObject","SerializeFromObject","MapPartitions","FlatMapGroupsInPandas","FlatMapGroupsInArrow","PythonMapInArrow"],
+    "blocked": ["Command","InsertIntoHadoopFsRelationCommand","CreateTableAsSelect","ReplaceTableAsSelect","AppendData","OverwriteByExpression","OverwritePartitionsDynamic"],
+    "scanOperators": ["Relation"]
+  },
+  "physicalOperators": {
+    "supported": ["Project","Filter","HashAggregate","BroadcastHashJoin","ShuffledHashJoin","Sort","GlobalLimit","LocalLimit","CollectLimit","TakeOrderedAndProject","FileScan","BatchScan","Range","Exchange","BroadcastExchange","AdaptiveSparkPlan","WholeStageCodegen","ColumnarToRow","InputAdapter","WholeStageTransformer","ProjectExecTransformer","FilterExecTransformer","HashAggregateExecTransformer","BroadcastHashJoinExecTransformer","ShuffledHashJoinExecTransformer","SortExecTransformer","LimitExecTransformer","FileSourceScanExecTransformer","BatchScanExecTransformer","VeloxColumnarToRowExec","RowToVeloxColumnarExec","InputIteratorTransformer","ColumnarExchange","ColumnarBroadcastExchange"],
+    "fallback": ["SortMergeJoin","ObjectHashAggregate","Window","WindowGroupLimit","Generate","Expand","Union","Coalesce","Repartition","BatchEvalPython","ArrowEvalPython","MapInPandas","MapInArrow","FlatMapGroupsInPandas","FlatMapGroupsInArrow","ExistingRDD","ExternalRDD","RDDScan"],
+    "blocked": ["ExecutedCommandExec","CommandResultExec","DataWritingCommandExec","WriteFilesExec","V2CommandExec"],
+    "scanOperators": ["FileScan","BatchScan","FileSourceScanExecTransformer","BatchScanExecTransformer"]
+  },
+  "expressions": {
+    "supportedFunctions": ["sum","count","min","max","avg","cast","isnull","isnotnull"],
+    "fallbackFunctions": ["collect_list","collect_set","percentile_approx","regexp_replace","explode","posexplode","from_json","to_json","schema_of_json","java_method","reflect"],
+    "supportedDataTypes": ["boolean","byte","short","integer","long","float","double","decimal","date","timestamp","string","binary"],
+    "fallbackDataTypes": ["array","map","struct","variant","calendarinterval","yearmonthinterval","daytimeinterval"]
+  },
+  "markers": {
+    "fallback": {
+      "udf": ["PythonUDF","BatchEvalPython","ArrowEvalPython","PandasUDF","PythonUDAF","ScalaUDF","JavaUDF"],
+      "externalOperation": ["ExternalRDD","ExistingRDD","RDDScan","MapPartitions","ScriptTransformation","PythonMapInArrow","MapInPandas"],
+      "filesystemOrNetworkExpression": ["input_file_name(","input_file_block_start(","input_file_block_length(","wholetext_files","binaryfile","jdbc:"]
+    },
+    "blocked": {
+      "writeOrCommand": ["InsertIntoHadoopFsRelationCommand","CreateTableAsSelect","ReplaceTableAsSelect","DataWritingCommandExec","WriteFilesExec"]
+    }
+  },
+  "security": {
+    "allowedSparkConf": ["spark.sql.adaptive.enabled","spark.sql.shuffle.partitions"],
+    "policy": "deny-any-session-key-not-explicitly-allowed"
+  }
+}

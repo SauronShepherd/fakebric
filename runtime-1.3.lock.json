@@ -10,7 +10,7 @@
     "enabledByDefault": false,
     "defaultMode": "jvm",
     "engine": "Gluten/Velox",
-    "status": "plugin-smoke-validated",
+    "status": "plan-analyzer-validated",
     "featureFlag": "FAKEBRIC_NATIVE_EXECUTION_ENABLED",
     "matrix": "native-runtime-matrix.json",
     "selectedProfile": "spark-3.5.5-gluten-1.6.0-velox-x86_64",
@@ -19,6 +19,9 @@
     "shuffleManager": "org.apache.spark.shuffle.sort.ColumnarShuffleManager",
     "bundleJar": "/opt/gluten/gluten-velox-bundle.jar",
     "smokeProbe": "runtime/native_smoke.py",
+    "planAnalyzer": "fakebric/native_plan.py",
+    "planSupportCatalog": "native-plan-support-catalog.json",
+    "planCatalogVersion": "2026-09-01.level-a.v1",
     "sbom": "runtime/native-sbom.spdx.json",
     "checksums": "runtime/native-artifact-checksums.txt",
     "evidenceRequired": true
