@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "defaultEnabled": false,
+  "selectedProfile": "spark-3.5.5-gluten-1.6.0-velox-x86_64",
+  "profiles": [
+    {
+      "id": "spark-3.5.5-gluten-1.6.0-velox-x86_64",
+      "status": "candidate",
+      "architecture": "amd64",
+      "os": "ubuntu-22.04",
+      "versions": {
+        "spark": "3.5.5",
+        "scala": "2.12.18",
+        "java": "17",
+        "python": "3.11",
+        "gluten": "1.6.0",
+        "velox": "34338bfe5a95c895c90bb8fbbe2dfeeb04466087"
+      },
+      "veloxSource": {
+        "repository": "https://github.com/IBM/velox.git",
+        "glutenPinnedRef": "dft-2026_02_06",
+        "commit": "34338bfe5a95c895c90bb8fbbe2dfeeb04466087"
+      },
+      "artifact": {
+        "url": "https://dlcdn.apache.org/gluten/1.6.0/apache-gluten-1.6.0-bin-spark-3.5.tar.gz",
+        "checksum": {
+          "algorithm": "sha512",
+          "value": "b087e962bc244d3ba4b687a953ca508182f43da962a7674d68bd9727191d6a6d124b843acefd70836cdd00647d35a45ffacd20c8989237e0d8c92c4289093a5c",
+          "source": "Apache Gluten 1.6.0 release checksum"
+        },
+        "sha256": null
+      },
+      "constraints": {
+        "nativeEnabledByDefault": false,
+        "fallback": "jvm",
+        "sparkDistribution": "single",
+        "pluginInstallDuringSession": false
+      }
+    }
+  ],
+  "notes": [
+    "Profile is candidate until the reproducible runtime build and native smoke tests pass.",
+    "The Apache release publishes SHA-512. Day 2 must download the exact artifact, verify SHA-512, compute and pin SHA-256 before embedding it in the runtime image.",
+    "Native remains disabled by default through the Day 13 release gate."
+  ]
+}
