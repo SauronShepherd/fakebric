@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Namespace
+metadata: {name: fakebric-system}
+---
+apiVersion: v1
+kind: Secret
+metadata: {name: fakebric-internal, namespace: fakebric-system}
+type: Opaque
+stringData: {token: dev-only-change-me, jwt-secret: dev-only-jwt-change-me}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: fakebric-api, namespace: fakebric-system}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: fakebric-quota, namespace: fakebric-system}
+spec: {hard: {requests.cpu: "4", requests.memory: 8Gi, limits.cpu: "8", limits.memory: 16Gi, pods: "20"}}
+---
+apiVersion: v1
+kind: LimitRange
+metadata: {name: fakebric-limits, namespace: fakebric-system}
+spec: {limits: [{type: Container, default: {cpu: "1", memory: 1Gi}, defaultRequest: {cpu: "100m", memory: 256Mi}}]}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: fakebric-data, namespace: fakebric-system}
+spec: {accessModes: [ReadWriteOnce], resources: {requests: {storage: 2Gi}}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: fakebric-api, namespace: fakebric-system}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: fakebric-api}}
+  template:
+    metadata: {labels: {app: fakebric-api}}
+    spec:
+      serviceAccountName: fakebric-api
+      containers:
+      - name: api
+        image: fakebric:dev-20260831-v15
+        imagePullPolicy: IfNotPresent
+        ports: [{containerPort: 8000}]
+        env:
+        - {name: FAKEBRIC_DATA, value: /data}
+        - name: FAKEBRIC_INTERNAL_TOKEN
+          valueFrom: {secretKeyRef: {name: fakebric-internal, key: token}}
+        - {name: FAKEBRIC_AUTH_MODE, value: required}
+        - name: FAKEBRIC_JWT_SECRET
+          valueFrom: {secretKeyRef: {name: fakebric-internal, key: jwt-secret}}
+        volumeMounts: [{name: data, mountPath: /data}]
+        livenessProbe: {httpGet: {path: /healthz, port: 8000}, initialDelaySeconds: 3, periodSeconds: 10}
+        readinessProbe: {httpGet: {path: /readyz, port: 8000}, initialDelaySeconds: 3, periodSeconds: 5}
+        securityContext: {runAsNonRoot: true, runAsUser: 10001, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
+      volumes: [{name: data, persistentVolumeClaim: {claimName: fakebric-data}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: fakebric-api, namespace: fakebric-system}
+spec: {selector: {app: fakebric-api}, ports: [{port: 8000, targetPort: 8000}]}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: fakebric-api-default-deny-egress, namespace: fakebric-system}
+spec:
+  podSelector: {matchLabels: {app: fakebric-api}}
+  policyTypes: [Ingress, Egress]
+  ingress: [{from: [{podSelector: {}}], ports: [{protocol: TCP, port: 8000}]}]
+  egress: [{to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}}], ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]}]

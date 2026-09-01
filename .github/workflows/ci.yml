@@ -1,0 +1,68 @@
+name: Fakebrick CI
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      - run: pytest -q --cov=fakebric --cov-report=term-missing --cov-fail-under=75
+      - name: Static checks
+        shell: bash
+        run: |
+          python -m compileall -q fakebric tools tests
+          python tools/production_gate.py --profile local
+          node --check fakebric/static/app.js
+  images-and-manifests:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: fakebric:ci
+      - name: Build controller image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: controller.Dockerfile
+          push: false
+          load: true
+          tags: fakebric-controller:ci
+      - name: Build runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: fakebric-runtime:ci
+      - name: Execute Spark notebook smoke test
+        run: |
+          docker run --rm --user 10001:10001 \
+            -v "$PWD/runtime:/workspace/runtime" \
+            --entrypoint python fakebric-runtime:ci \
+            /opt/fakebric/execute_notebook.py /workspace/runtime/spark_smoke.ipynb --timeout 120
+          grep -q "fakebric-spark-ok" runtime/spark_smoke.ipynb
+      - name: Validate Kubernetes manifests
+        shell: bash
+        run: |
+          for file in k8s/*.yaml; do
+            kubectl apply --dry-run=client --validate=strict -f "$file" >/dev/null
+          done
+      - name: Verify controller image pin consistency
+        shell: bash
+        run: |
+          expected='fakebric/controller:dev-20260901-v13'
+          grep -Fq "image: $expected" k8s/controller-deployment.yaml
+          grep -Fq "ControllerImage = \"$expected\"" dev-up.ps1
+          grep -Fq "CONTROLLER_IMAGE ?= $expected" Makefile

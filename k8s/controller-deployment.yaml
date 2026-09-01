@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fakebric-session-controller
+  namespace: fakebric-system
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: fakebric-session-controller}}
+  template:
+    metadata: {labels: {app: fakebric-session-controller}}
+    spec:
+      serviceAccountName: fakebric-session-controller
+      containers:
+      - name: controller
+        image: fakebric/controller:dev-20260901-v13
+        imagePullPolicy: IfNotPresent
+        env:
+        - {name: FAKEBRIC_API_URL, value: http://fakebric-api:8000}
+        - {name: FAKEBRIC_NAMESPACE, value: fakebric-system}
+        - name: FAKEBRIC_INTERNAL_TOKEN
+          valueFrom: {secretKeyRef: {name: fakebric-internal, key: token}}
+        securityContext: {runAsNonRoot: true, runAsUser: 10001, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}

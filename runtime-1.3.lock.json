@@ -1,0 +1,11 @@
+{
+  "runtime": "1.3",
+  "fabricReferenceSnapshot": "Fakebric-V2-2026-08-30",
+  "spark": "3.5.5",
+  "java": "11.0.27",
+  "scala": "2.12.18",
+  "python": "3.11",
+  "delta": "3.2.1",
+  "native": {"enabledByDefault": false, "engine": "Gluten/Velox-compatible", "evidenceRequired": true},
+  "image": {"repository": "fakebric/runtime", "tag": "1.3-base", "digest": null, "digestPolicy": "pin-before-production"}
+}
