@@ -35,8 +35,14 @@ def test_native_smoke_uses_approved_plugin_without_changing_default():
     lock = json.loads((ROOT / "runtime-1.3.lock.json").read_text(encoding="utf-8"))
     assert lock["native"]["enabledByDefault"] is False
     assert lock["native"]["defaultMode"] == "jvm"
-    assert lock["native"]["status"] == "plugin-smoke-validated"
+    assert lock["native"]["status"] in {
+        "plugin-smoke-validated",
+        "plan-analyzer-validated",
+    }
     assert lock["native"]["pluginClass"] == "org.apache.gluten.GlutenPlugin"
+    assert lock["native"]["shuffleManager"] == "org.apache.spark.shuffle.sort.ColumnarShuffleManager"
+    assert lock["native"]["bundleJar"] == "/opt/gluten/gluten-velox-bundle.jar"
+    assert lock["native"]["smokeProbe"] == "runtime/native_smoke.py"
 
 
 def test_preliminary_native_sbom_tracks_locked_components():
