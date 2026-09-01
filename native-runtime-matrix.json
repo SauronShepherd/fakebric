@@ -23,12 +23,14 @@
       },
       "artifact": {
         "url": "https://dlcdn.apache.org/gluten/1.6.0/apache-gluten-1.6.0-bin-spark-3.5.tar.gz",
+        "sizeBytes": 107838606,
         "checksum": {
           "algorithm": "sha512",
           "value": "b087e962bc244d3ba4b687a953ca508182f43da962a7674d68bd9727191d6a6d124b843acefd70836cdd00647d35a45ffacd20c8989237e0d8c92c4289093a5c",
           "source": "Apache Gluten 1.6.0 release checksum"
         },
-        "sha256": null
+        "sha256": "90f9ec6ac964bcd73893c661a9133e46afc46f8b2fa9e17c647fb3939b8b6d43",
+        "sha256Evidence": "GitHub Actions native-artifact-checksum: exact artifact downloaded, size checked, SHA-512 matched before SHA-256 calculation"
       },
       "constraints": {
         "nativeEnabledByDefault": false,
@@ -40,7 +42,7 @@
   ],
   "notes": [
     "Profile is candidate until the reproducible runtime build and native smoke tests pass.",
-    "The Apache release publishes SHA-512. Day 2 must download the exact artifact, verify SHA-512, compute and pin SHA-256 before embedding it in the runtime image.",
+    "The exact Gluten artifact was verified against the Apache SHA-512 and its SHA-256 is pinned before runtime image integration.",
     "Native remains disabled by default through the Day 13 release gate."
   ]
 }

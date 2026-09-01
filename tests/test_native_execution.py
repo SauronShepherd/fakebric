@@ -98,6 +98,8 @@ def test_runtime_matrix_is_complete_and_checksum_is_valid():
     assert len(profile["versions"]["velox"]) == 40
     assert profile["artifact"]["checksum"]["algorithm"] == "sha512"
     assert len(profile["artifact"]["checksum"]["value"]) == 128
+    assert profile["artifact"]["sha256"] == "90f9ec6ac964bcd73893c661a9133e46afc46f8b2fa9e17c647fb3939b8b6d43"
+    assert profile["artifact"]["sizeBytes"] == 107838606
 
 
 def test_incomplete_runtime_matrix_is_rejected():
@@ -113,6 +115,14 @@ def test_invalid_checksum_is_rejected():
     broken = copy.deepcopy(matrix)
     broken["profiles"][0]["artifact"]["checksum"]["value"] = "not-a-checksum"
     with pytest.raises(ValueError, match="invalid sha512 checksum"):
+        validate_runtime_matrix(broken)
+
+
+def test_missing_sha256_is_rejected():
+    matrix = json.loads((ROOT / "native-runtime-matrix.json").read_text(encoding="utf-8"))
+    broken = copy.deepcopy(matrix)
+    broken["profiles"][0]["artifact"]["sha256"] = None
+    with pytest.raises(ValueError, match="valid SHA-256 is required"):
         validate_runtime_matrix(broken)
 
 

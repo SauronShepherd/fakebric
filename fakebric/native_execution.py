@@ -36,8 +36,6 @@ class NativeErrorCode(str, Enum):
     NATIVE_SECURITY_POLICY = "NATIVE_SECURITY_POLICY"
 
 
-# Session-level Spark settings are intentionally narrow. Runtime/plugin, resource,
-# identity, network and filesystem settings are controlled by the server/runtime.
 SAFE_SESSION_SPARK_CONF = frozenset(
     {
         "spark.sql.adaptive.enabled",
@@ -196,6 +194,10 @@ def validate_runtime_matrix(matrix: Mapping[str, Any]) -> None:
         if not artifact["url"].startswith("https://"):
             raise ValueError(f"profile {profile_id}: artifact URL must use HTTPS")
         _validate_checksum(artifact.get("checksum"), profile_id)
+
+        sha256 = artifact.get("sha256")
+        if not isinstance(sha256, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", sha256):
+            raise ValueError(f"profile {profile_id}: valid SHA-256 is required")
 
 
 def load_runtime_matrix(path: str | Path) -> dict[str, Any]:
