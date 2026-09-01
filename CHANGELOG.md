@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-01 — Power BI emulation Day 3 (ejecución anticipada)
+
+- Added typed relationships for one-to-one, one-to-many and many-to-many cardinalities.
+- Added single/both filter direction and active/inactive relationship behavior.
+- Added primary-key and date-table metadata.
+- Added structured dependency references for tables, columns and measures without prematurely parsing DAX.
+- Added model validation for missing tables/columns, type mismatch, duplicate relationships, cycles and ambiguous paths.
+- Added dependency-cycle detection and structured diagnostics with severity, code, location and suggested fix.
+- Added `POST /api/v1/models/{id}/validate` on the semantic-model service/router.
+- Added propagation/filter-graph evidence and regression coverage for Day 1–2 contracts.
+
 ## 2026-09-01 — Power BI emulation Day 2 (ejecución anticipada)
 
 - Added `Table`, `Column`, `Measure` and `DataSource` semantic contracts.
@@ -23,4 +34,3 @@
 - Added an optimistic-concurrency revision repository and migration registry scaffolding.
 - Added `FAKEBRIC_POWERBI_EMULATION`, disabled by default.
 - Added JSON Schemas and focused contract tests.
-- Scope remains explicitly partial; tables, relationships, DAX, report visuals and runtime behavior are not claimed as implemented.
