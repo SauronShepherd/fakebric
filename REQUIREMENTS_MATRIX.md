@@ -20,11 +20,15 @@ Estados: `implemented` = evidencia automatizada o de runtime; `partial` = contra
 | Debugger DAP | unsupported | debugpy incluido y puerto declarado | handshake, breakpoints, pause/continue/scopes y UI integrada |
 | Spark Inspector/native | unsupported | manifest marca native disabled/unknown sin evidencia | Gluten/Velox build, plan evidence, fallback y equality harness |
 | UI shell | partial | UI estática, inventario, creación y ejecución con polling; JS syntax check | editor notebook, rutas, panes, explorer, diagnostics, responsive y a11y |
-| SemanticModel/Report Power BI | partial | Día 1: contratos Pydantic versionados, JSON Schemas, lifecycle, ETag/revisiones, migraciones base, feature flag y 10 tests | tablas/fuentes, relaciones, DAX, query engine, visuales, UI, RLS, publicación y E2E según días 2–13 |
-| Observabilidad | partial | health/ready/metrics y trace IDs | métricas Power BI por consulta/render, logs estructurados, diagnostics bundle, retention y alertas |
-| CI/release | partial | pytest, builds y dry-run definidos en CI; production gate | integrar tests Power BI en CI, SBOM, firmas, vulnerability gate, image digests y quality report |
-| E2E/performance/chaos/backup | partial | E2E Minikube completo verificado en perfil `fakebrick-ci` con ejecución `COMPLETED` y resultado persistido | Power BI E2E, Playwright/axe, load, chaos, restore y upgrade evidence |
+| SemanticModel contracts | partial | Días 1–2: contratos versionados; `Table`/`Column`/`Measure`/`DataSource`; tipos escalares; JSON Schema; duplicados y columnas inexistentes validados | relaciones, jerarquías, columnas calculadas, perspectivas y validación de grafo (día 3+) |
+| Power BI data sources | partial | CSV, JSONL, Parquet vía `pyarrow` y tablas Fakebrick registradas; path traversal bloqueado; credenciales inline rechazadas; inferencia revisable y perfiles básicos | SQL registrado, Delta e integración durable según especificación/fases posteriores |
+| DAX Power BI | unsupported | catálogo previsto en especificación, todavía sin parser/evaluador | días 4–6 |
+| Query engine Power BI | unsupported | arquitectura prevista, todavía sin planner/ejecutor/caché | día 7 |
+| Reports Power BI | partial | contrato base `Report` del día 1 | páginas/visuales/queries/filtros/runtime (días 8–9) |
+| Observabilidad | partial | health/ready/metrics y trace IDs; perfiles de datasets Power BI incluyen filas/nulls/min/max/cardinalidad | métricas Power BI por consulta/render, logs estructurados, diagnostics bundle, retention y alertas |
+| CI/release | partial | pytest, builds y dry-run definidos en CI; production gate; tests Power BI focalizados | ejecutar suite completa con dependencia Parquet en CI y gates de días 10–13 |
+| E2E/performance/chaos/backup | partial | E2E Minikube previo del control plane | Power BI E2E, Playwright/axe, load, chaos, restore y upgrade evidence |
 
 ## Gate actual
 
-La suite histórica del control plane tenía 26 tests verdes con cobertura total del 82,41%. El incremento Power BI del día 1 añade 10 tests focalizados verificados de forma aislada. El E2E Minikube previo demuestra el camino crítico local existente, pero no sustituye las campañas Power BI de los días 10–13.
+La suite histórica del control plane tenía 26 tests verdes con cobertura total del 82,41%. La verificación focalizada acumulada de los contratos Power BI de días 1–2 ejecutó 24 tests correctamente; el test Parquet quedó omitido en el runtime de verificación anticipada porque `pyarrow` no estaba instalado allí. `pyarrow` se ha añadido a `requirements.txt`, por lo que CI debe ejecutar ese caso al instalar dependencias. No se considera validada todavía la suite completa histórica ni el E2E Power BI.

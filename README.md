@@ -11,11 +11,18 @@ uvicorn fakebric.app:app --reload
 
 Power BI emulation is under active development on `codex/powerbi-emulation` following `POWERBI_EMULATION_SPEC.md` and `POWERBI_EMULATION_BUILD_PLAN_13_DAYS.md`. The implementation is Linux-first and intentionally exposes only documented compatible behavior; unsupported capabilities must fail deterministically rather than silently emulating full Power BI/PBIX compatibility.
 
-Day 1 establishes versioned `SemanticModel` and `Report` Pydantic contracts, generated JSON Schemas, lifecycle states (`Draft`, `Published`, `Archived`), standard error codes, optimistic concurrency through ETags, a migration registry, immutable revision snapshots and the `FAKEBRIC_POWERBI_EMULATION` feature flag. The flag is disabled by default.
+Day 1 established versioned `SemanticModel` and `Report` Pydantic contracts, generated JSON Schemas, lifecycle states (`Draft`, `Published`, `Archived`), standard error codes, optimistic concurrency through ETags, a migration registry, immutable revision snapshots and the `FAKEBRIC_POWERBI_EMULATION` feature flag.
+
+Day 2 adds typed semantic entities (`Table`, `Column`, `Measure`, `DataSource`), the supported scalar types (`string`, `integer`, `decimal`, `boolean`, `date`, `datetime`, `binary`), workspace-confined CSV/JSONL/Parquet readers, registered Fakebrick-table reads, reviewable type inference, explicit conversion, missing-column/duplicate-name validation and deterministic row/null/min/max/cardinality profiles. Source credentials must be referenced with `credentialRef`; credential-like keys are rejected from inline source options.
 
 ```bash
-FAKEBRIC_POWERBI_EMULATION=true python -m pytest -q tests/test_semantic_model.py tests/test_reports.py
+FAKEBRIC_POWERBI_EMULATION=true python -m pytest -q \
+  tests/test_semantic_model.py \
+  tests/test_reports.py \
+  tests/test_semantic_model_sources.py
 ```
+
+Parquet support uses `pyarrow` from `requirements.txt`. File-backed sources are resolved under a caller-supplied workspace root; traversal and absolute paths outside that root are rejected.
 
 ## Validación local y Minikube
 
@@ -44,7 +51,7 @@ For a self-contained Minikube deployment, run `make dev-up` (override
 `MINIKUBE_PROFILE` and `KUBE_CONTEXT` when using a different profile).
 On Windows without GNU Make, run `./dev-up.ps1` instead.
 
-Semantic Model and Report are represented as extensible item types. Their Power BI-compatible domain authoring is being added incrementally according to the 13-day plan; capabilities not yet implemented remain unsupported.
+Semantic Model and Report are represented as extensible item types. Their Power BI-compatible domain authoring is being added incrementally according to the 13-day plan; relationships, DAX, report rendering, RLS and later capabilities remain unsupported until their scheduled increments.
 
 Environments are edited as `Draft` definitions and are published explicitly
 with `POST /api/v1/items/{id}/publish` using a 64-hex SHA-256 OCI digest;
