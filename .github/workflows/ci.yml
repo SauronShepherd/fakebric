@@ -48,7 +48,7 @@ jobs:
           push: false
           load: true
           tags: fakebric-runtime:ci
-      - name: Validate JVM runtime versions and non-root identity
+      - name: Validate JVM runtime versions, architecture and non-root identity
         shell: bash
         run: |
           set -euo pipefail
@@ -56,9 +56,11 @@ jobs:
           grep -Fq '"python": "3.11.' jvm-runtime-versions.json
           grep -Fq '11.0.' jvm-runtime-versions.json
           grep -Fq '3.5.5' jvm-runtime-versions.json
+          grep -Fq '"architecture": "x86_64"' jvm-runtime-versions.json
           grep -Fq '"uid": 10001' jvm-runtime-versions.json
           grep -Fq '"nativeRuntimePresent": false' jvm-runtime-versions.json
           grep -Fq '"nativeExecutionEnabled": "false"' jvm-runtime-versions.json
+          docker run --rm --entrypoint sh fakebric-runtime:ci -c 'test -w /workspace && test -w /tmp/spark && tini --version >/dev/null 2>&1'
       - name: Execute Spark notebook smoke test on JVM runtime
         shell: bash
         run: |
@@ -89,27 +91,23 @@ jobs:
           grep -Fq '"python": "3.11.' native-runtime-versions.json
           grep -Fq '17.0.20' native-runtime-versions.json
           grep -Fq '3.5.5' native-runtime-versions.json
+          grep -Fq '"architecture": "x86_64"' native-runtime-versions.json
           grep -Fq '"uid": 10001' native-runtime-versions.json
           grep -Fq '"nativeRuntimePresent": true' native-runtime-versions.json
           grep -Fq '"nativeExecutionEnabled": "false"' native-runtime-versions.json
           grep -Fq 'gluten=1.6.0' native-runtime-versions.json
           grep -Fq 'velox=34338bfe5a95c895c90bb8fbbe2dfeeb04466087' native-runtime-versions.json
-          docker run --rm --entrypoint sh fakebric-runtime-native:ci -c 'test -s /opt/fakebric/native-sbom.spdx.json && test -s /opt/fakebric/native-artifact-checksums.txt && find /opt/gluten -type f -print -quit | grep -q .'
+          docker run --rm --entrypoint sh fakebric-runtime-native:ci -c 'test -w /workspace && test -w /tmp/spark && tini --version >/dev/null 2>&1 && test -s /opt/fakebric/native-sbom.spdx.json && test -s /opt/fakebric/native-artifact-checksums.txt && find /opt/gluten -type f -name "*.so*" -print -quit | grep -q .'
       - name: Start Spark JVM path inside native-capable image with plugin disabled
         shell: bash
         run: |
           set -euo pipefail
           docker run --rm --memory=3g --cpus=2 --entrypoint python fakebric-runtime-native:ci -c 'from pyspark.sql import SparkSession; s=SparkSession.builder.master("local[1]").appName("fakebric-day2-jvm-smoke").config("spark.ui.enabled","false").getOrCreate(); assert s.range(10).count() == 10; assert s.conf.get("spark.plugins", "") == ""; print("fakebric-native-image-jvm-path-ok"); s.stop()'
-      - name: Validate Kubernetes manifests
+      - name: Validate Kubernetes manifest YAML structure offline
         shell: bash
         run: |
           set -euo pipefail
-          for file in k8s/*.yaml; do
-            # Client-side strict validation requires a configured API server/OpenAPI
-            # endpoint. GitHub-hosted runners do not have a cluster, so parse every
-            # manifest offline here; strict validation remains part of the Minikube gate.
-            kubectl create --dry-run=client --validate=false -f "$file" >/dev/null
-          done
+          python tools/validate_k8s_manifests.py k8s/*.yaml
       - name: Verify controller image pin consistency
         shell: bash
         run: |
