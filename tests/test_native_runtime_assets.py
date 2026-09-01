@@ -38,6 +38,7 @@ def test_native_smoke_uses_approved_plugin_without_changing_default():
     assert lock["native"]["status"] in {
         "plugin-smoke-validated",
         "plan-analyzer-validated",
+        "selector-fallback-validated",
     }
     assert lock["native"]["pluginClass"] == "org.apache.gluten.GlutenPlugin"
     assert lock["native"]["shuffleManager"] == "org.apache.spark.shuffle.sort.ColumnarShuffleManager"
