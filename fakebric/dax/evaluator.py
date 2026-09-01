@@ -1,407 +1,235 @@
-from __future__ import annotations
-
-from dataclasses import dataclass, field
-from datetime import date, datetime
-from decimal import Decimal, InvalidOperation
-from typing import Any, Mapping, Sequence
-
-from .ast import BinaryOp, Expression, FunctionCall, Literal, Reference, TableReference, UnaryOp
+from dataclasses import dataclass,field
+from decimal import Decimal,InvalidOperation
+from enum import Enum
+from .ast import BinaryOp,FunctionCall,Literal,Reference,TableReference,UnaryOp,collect_references
 from .errors import DaxEvaluationError
 from .functions import get_function
 from .parser import parse_dax
-
-BLANK = None
-
-
-@dataclass(frozen=True, slots=True)
+BLANK=None
+class FilterOrigin(str,Enum):REPORT='report';PAGE='page';VISUAL='visual';USER='user';CALCULATE='calculate';CONTEXT_TRANSITION='context-transition'
+O={FilterOrigin.REPORT:1,FilterOrigin.PAGE:2,FilterOrigin.VISUAL:3,FilterOrigin.USER:4,FilterOrigin.CALCULATE:5,FilterOrigin.CONTEXT_TRANSITION:6}
+@dataclass(frozen=True)
+class DirectFilter:table:str;column:str;values:frozenset;origin:FilterOrigin=FilterOrigin.USER
+@dataclass(frozen=True)
 class FilterContext:
-    """Visible row indices per table. Missing tables mean all rows are visible."""
-
-    row_indices: Mapping[str, frozenset[int]] = field(default_factory=dict)
-
-    @classmethod
-    def for_table(cls, table: str, indices: Sequence[int]) -> "FilterContext":
-        return cls({table.casefold(): frozenset(indices)})
-
-    def indices_for(self, table: str, row_count: int) -> tuple[int, ...]:
-        selected = self.row_indices.get(table.casefold())
-        if selected is None:
-            return tuple(range(row_count))
-        return tuple(index for index in range(row_count) if index in selected)
-
-
-@dataclass(frozen=True, slots=True)
+ row_indices:dict=field(default_factory=dict);direct_filters:tuple=()
+ @classmethod
+ def for_table(c,t,i):return c({t.casefold():frozenset(i)})
+ def with_values(s,t,c,v,origin=FilterOrigin.USER):origin=origin if isinstance(origin,FilterOrigin) else FilterOrigin(origin);return FilterContext(dict(s.row_indices),s.direct_filters+(DirectFilter(t,c,frozenset(v),origin),))
+ def drop_col(s,t,c):return FilterContext(dict(s.row_indices),tuple(x for x in s.direct_filters if (x.table.casefold(),x.column.casefold())!=(t.casefold(),c.casefold())))
+ def drop_table(s,t):t=t.casefold();return FilterContext({k:v for k,v in s.row_indices.items() if k!=t},tuple(x for x in s.direct_filters if x.table.casefold()!=t))
+ def keep_cols(s,t,cols):t=t.casefold();cols={x.casefold() for x in cols};return FilterContext(dict(s.row_indices),tuple(x for x in s.direct_filters if x.table.casefold()!=t or x.column.casefold() in cols))
+ def clear(s):return FilterContext()
+ def is_direct(s,t,c):return any((x.table.casefold(),x.column.casefold())==(t.casefold(),c.casefold()) for x in s.direct_filters)
+ def ordered(s):return sorted(s.direct_filters,key=lambda x:(O[x.origin],x.table.casefold(),x.column.casefold()))
+@dataclass(frozen=True)
 class RowContext:
-    rows: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
-
-    @classmethod
-    def for_row(cls, table: str, row: Mapping[str, Any]) -> "RowContext":
-        return cls({table.casefold(): row})
-
-
-@dataclass(frozen=True, slots=True)
-class ColumnVector:
-    table: str
-    column: str
-    values: tuple[Any, ...]
-    row_count: int
-
-
-@dataclass(frozen=True, slots=True)
-class TableVector:
-    table: str
-    rows: tuple[Mapping[str, Any], ...]
-
-
+ rows:dict=field(default_factory=dict)
+ @classmethod
+ def for_row(c,t,r):return c({t.casefold():r})
+ def add(s,t,r):d=dict(s.rows);d[t.casefold()]=r;return RowContext(d)
+@dataclass(frozen=True)
+class ColumnVector:table:str;column:str;values:tuple;row_count:int
+@dataclass(frozen=True)
+class TableVector:table:str;rows:tuple;indices:tuple|None=None;replace:bool=False
+@dataclass(frozen=True)
+class RelationshipBinding:name:str;from_table:str;from_column:str;to_table:str;to_column:str;cardinality:str;filter_direction:str='single';active:bool=True
 class DaxEngine:
-    def __init__(
-        self,
-        tables: Mapping[str, Sequence[Mapping[str, Any]]],
-        measures: Mapping[str, Mapping[str, str]] | None = None,
-    ) -> None:
-        self._tables: dict[str, tuple[str, tuple[Mapping[str, Any], ...]]] = {
-            name.casefold(): (name, tuple(rows)) for name, rows in tables.items()
-        }
-        self._measures: dict[str, tuple[str, dict[str, tuple[str, str]]]] = {}
-        for table_name, table_measures in (measures or {}).items():
-            self._measures[table_name.casefold()] = (
-                table_name,
-                {name.casefold(): (name, expression) for name, expression in table_measures.items()},
-            )
-        self._measure_stack: list[tuple[str, str]] = []
-
-    @classmethod
-    def from_semantic_model(
-        cls,
-        model: Any,
-        tables: Mapping[str, Sequence[Mapping[str, Any]]],
-    ) -> "DaxEngine":
-        measures = {
-            table.name: {measure.name: measure.expression for measure in table.measures}
-            for table in model.tables
-        }
-        return cls(tables, measures)
-
-    def evaluate(
-        self,
-        expression: str | Expression,
-        *,
-        filter_context: FilterContext | None = None,
-        row_context: RowContext | None = None,
-    ) -> Any:
-        ast = parse_dax(expression) if isinstance(expression, str) else expression
-        return self._scalar(
-            self._eval(ast, filter_context or FilterContext(), row_context or RowContext())
-        )
-
-    def evaluate_rows(
-        self,
-        expression: str | Expression,
-        table: str,
-        *,
-        filter_context: FilterContext | None = None,
-    ) -> tuple[Any, ...]:
-        ast = parse_dax(expression) if isinstance(expression, str) else expression
-        context = filter_context or FilterContext()
-        table_name, rows = self._table(table)
-        results: list[Any] = []
-        for index in context.indices_for(table_name, len(rows)):
-            results.append(self._scalar(self._eval(ast, context, RowContext.for_row(table_name, rows[index]))))
-        return tuple(results)
-
-    def evaluate_measure(
-        self,
-        table: str,
-        measure: str,
-        *,
-        filter_context: FilterContext | None = None,
-    ) -> Any:
-        table_key = table.casefold()
-        measure_key = measure.casefold()
-        if table_key not in self._measures or measure_key not in self._measures[table_key][1]:
-            raise DaxEvaluationError("DAX_EVAL_MEASURE_NOT_FOUND", f"Measure {table}.{measure} does not exist")
-        _, definitions = self._measures[table_key]
-        _, expression = definitions[measure_key]
-        stack_key = (table_key, measure_key)
-        if stack_key in self._measure_stack:
-            chain = " -> ".join(f"{t}.{m}" for t, m in self._measure_stack + [stack_key])
-            raise DaxEvaluationError("DAX_EVAL_MEASURE_CYCLE", f"Measure evaluation cycle: {chain}")
-        self._measure_stack.append(stack_key)
-        try:
-            return self.evaluate(expression, filter_context=filter_context)
-        finally:
-            self._measure_stack.pop()
-
-    def _table(self, table: str) -> tuple[str, tuple[Mapping[str, Any], ...]]:
-        try:
-            return self._tables[table.casefold()]
-        except KeyError as exc:
-            raise DaxEvaluationError("DAX_EVAL_TABLE_NOT_FOUND", f"Table {table!r} does not exist") from exc
-
-    @staticmethod
-    def _row_value(row: Mapping[str, Any], column: str, table: str) -> Any:
-        matches = [key for key in row if key.casefold() == column.casefold()]
-        if not matches:
-            raise DaxEvaluationError("DAX_EVAL_COLUMN_NOT_FOUND", f"Column {table}[{column}] does not exist")
-        return row[matches[0]]
-
-    def _eval(self, node: Expression, filters: FilterContext, rows: RowContext) -> Any:
-        if isinstance(node, Literal):
-            if node.literal_type == "date":
-                return date.fromisoformat(str(node.value))
-            if node.literal_type == "datetime":
-                return datetime.fromisoformat(str(node.value))
-            return node.value
-        if isinstance(node, Reference):
-            canonical_table, table_rows = self._table(node.table)
-            current_row = rows.rows.get(canonical_table.casefold())
-            if current_row is not None:
-                return self._row_value(current_row, node.name, canonical_table)
-            indices = filters.indices_for(canonical_table, len(table_rows))
-            values = tuple(self._row_value(table_rows[index], node.name, canonical_table) for index in indices)
-            return ColumnVector(canonical_table, node.name, values, len(indices))
-        if isinstance(node, TableReference):
-            canonical_table, table_rows = self._table(node.table)
-            indices = filters.indices_for(canonical_table, len(table_rows))
-            return TableVector(canonical_table, tuple(table_rows[index] for index in indices))
-        if isinstance(node, UnaryOp):
-            value = self._scalar(self._eval(node.operand, filters, rows))
-            if node.operator == "!":
-                return not self._truthy(value)
-            number = self._numeric(value, blank_as_zero=True)
-            return number if node.operator == "+" else -number
-        if isinstance(node, BinaryOp):
-            return self._binary(node, filters, rows)
-        if isinstance(node, FunctionCall):
-            return self._function(node, filters, rows)
-        raise DaxEvaluationError("DAX_EVAL_NODE", f"Unsupported AST node {type(node).__name__}")
-
-    def _binary(self, node: BinaryOp, filters: FilterContext, rows: RowContext) -> Any:
-        if node.operator == "&&":
-            left = self._scalar(self._eval(node.left, filters, rows))
-            return self._truthy(left) and self._truthy(self._scalar(self._eval(node.right, filters, rows)))
-        if node.operator == "||":
-            left = self._scalar(self._eval(node.left, filters, rows))
-            return self._truthy(left) or self._truthy(self._scalar(self._eval(node.right, filters, rows)))
-        left = self._scalar(self._eval(node.left, filters, rows))
-        right = self._scalar(self._eval(node.right, filters, rows))
-        if node.operator in {"+", "-", "*", "/", "^"}:
-            a = self._numeric(left, blank_as_zero=True)
-            b = self._numeric(right, blank_as_zero=True)
-            if node.operator == "+": return a + b
-            if node.operator == "-": return a - b
-            if node.operator == "*": return a * b
-            if node.operator == "/":
-                if b == 0:
-                    raise DaxEvaluationError("DAX_EVAL_DIVIDE_BY_ZERO", "Use DIVIDE() for safe division by zero")
-                return a / b
-            if b != b.to_integral_value():
-                raise DaxEvaluationError("DAX_EVAL_TYPE", "Decimal exponents are not supported in the Level 1 evaluator")
-            return a ** int(b)
-        left, right = self._comparison_values(left, right)
-        if node.operator == "=": return left == right
-        if node.operator == "<>": return left != right
-        try:
-            if node.operator == "<": return left < right
-            if node.operator == "<=": return left <= right
-            if node.operator == ">": return left > right
-            if node.operator == ">=": return left >= right
-        except TypeError as exc:
-            raise DaxEvaluationError("DAX_EVAL_TYPE", f"Cannot compare {type(left).__name__} and {type(right).__name__}") from exc
-        raise DaxEvaluationError("DAX_EVAL_OPERATOR", f"Unsupported operator {node.operator}")
-
-    def _function(self, node: FunctionCall, filters: FilterContext, rows: RowContext) -> Any:
-        spec = get_function(node.name)
-        if spec is None or spec.level != 1:
-            raise DaxEvaluationError("DAX_EVAL_UNSUPPORTED_LEVEL", f"Function {node.name} is not executable at DAX Level 1")
-        name = node.name
-        if name in {"SUM", "COUNT", "COUNTA", "DISTINCTCOUNT", "AVERAGE"}:
-            vector = self._column(node.arguments[0], filters, rows, name)
-            if name == "SUM": return self._sum(vector)
-            if name == "COUNT": return self._count(vector, allow_boolean=False)
-            if name == "COUNTA": return self._count(vector, allow_boolean=True)
-            if name == "DISTINCTCOUNT": return self._distinctcount(vector)
-            return self._average(vector)
-        if name == "COUNTROWS":
-            table = self._eval(node.arguments[0], filters, rows)
-            if not isinstance(table, TableVector):
-                raise DaxEvaluationError("DAX_EVAL_TYPE", "COUNTROWS requires a table argument")
-            return BLANK if not table.rows else len(table.rows)
-        if name in {"MIN", "MAX"}:
-            if len(node.arguments) == 1:
-                vector = self._column(node.arguments[0], filters, rows, name)
-                return self._minmax(vector, name == "MIN")
-            left = self._scalar(self._eval(node.arguments[0], filters, rows))
-            right = self._scalar(self._eval(node.arguments[1], filters, rows))
-            a, b = self._comparison_values(left, right)
-            try:
-                return min(a, b) if name == "MIN" else max(a, b)
-            except TypeError as exc:
-                raise DaxEvaluationError("DAX_EVAL_TYPE", f"{name} arguments are not comparable") from exc
-        if name == "DIVIDE":
-            numerator = self._numeric(self._scalar(self._eval(node.arguments[0], filters, rows)), blank_as_zero=True)
-            denominator_raw = self._scalar(self._eval(node.arguments[1], filters, rows))
-            denominator = Decimal(0) if denominator_raw is BLANK else self._numeric(denominator_raw)
-            if denominator == 0:
-                if len(node.arguments) == 2:
-                    return BLANK
-                if not isinstance(node.arguments[2], Literal):
-                    raise DaxEvaluationError("DAX_EVAL_ALT_NOT_CONSTANT", "DIVIDE alternate result must be a literal constant")
-                return self._scalar(self._eval(node.arguments[2], filters, rows))
-            return numerator / denominator
-        if name == "IF":
-            condition = self._truthy(self._scalar(self._eval(node.arguments[0], filters, rows)))
-            if condition:
-                return self._scalar(self._eval(node.arguments[1], filters, rows))
-            if len(node.arguments) == 3:
-                return self._scalar(self._eval(node.arguments[2], filters, rows))
-            return BLANK
-        if name == "SWITCH":
-            expression = self._scalar(self._eval(node.arguments[0], filters, rows))
-            rest = node.arguments[1:]
-            has_else = len(rest) % 2 == 1
-            pair_end = len(rest) - (1 if has_else else 0)
-            for index in range(0, pair_end, 2):
-                candidate = self._scalar(self._eval(rest[index], filters, rows))
-                left, right = self._comparison_values(expression, candidate)
-                if left == right:
-                    return self._scalar(self._eval(rest[index + 1], filters, rows))
-            return self._scalar(self._eval(rest[-1], filters, rows)) if has_else else BLANK
-        if name == "COALESCE":
-            for argument in node.arguments:
-                value = self._scalar(self._eval(argument, filters, rows))
-                if value is not BLANK:
-                    return value
-            return BLANK
-        raise DaxEvaluationError("DAX_EVAL_FUNCTION", f"Function {name} is not implemented")
-
-    def _column(self, argument: Expression, filters: FilterContext, rows: RowContext, function: str) -> ColumnVector:
-        value = self._eval(argument, filters, rows)
-        if not isinstance(value, ColumnVector):
-            raise DaxEvaluationError("DAX_EVAL_TYPE", f"{function} requires a column reference")
-        return value
-
-    @staticmethod
-    def _scalar(value: Any) -> Any:
-        if isinstance(value, ColumnVector):
-            raise DaxEvaluationError("DAX_EVAL_COLUMN_SCALAR", f"Column {value.table}[{value.column}] cannot be used as a scalar without row context or aggregation")
-        if isinstance(value, TableVector):
-            raise DaxEvaluationError("DAX_EVAL_TABLE_SCALAR", f"Table {value.table} cannot be used as a scalar")
-        return value
-
-    @staticmethod
-    def _truthy(value: Any) -> bool:
-        if value is BLANK:
-            return False
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, (int, Decimal, float)):
-            return value != 0
-        if isinstance(value, str):
-            return value != ""
-        raise DaxEvaluationError("DAX_EVAL_TYPE", f"Cannot coerce {type(value).__name__} to boolean")
-
-    @staticmethod
-    def _numeric(value: Any, *, blank_as_zero: bool = False) -> Decimal:
-        if value is BLANK:
-            if blank_as_zero:
-                return Decimal(0)
-            raise DaxEvaluationError("DAX_EVAL_TYPE", "BLANK is not numeric in this context")
-        if isinstance(value, bool):
-            raise DaxEvaluationError("DAX_EVAL_TYPE", "Boolean values are not numeric in the Level 1 evaluator")
-        if isinstance(value, Decimal):
-            return value
-        if isinstance(value, int):
-            return Decimal(value)
-        if isinstance(value, float):
-            return Decimal(str(value))
-        try:
-            if isinstance(value, str) and value.strip():
-                return Decimal(value)
-        except InvalidOperation:
-            pass
-        raise DaxEvaluationError("DAX_EVAL_TYPE", f"Expected numeric value, received {type(value).__name__}")
-
-    @classmethod
-    def _comparison_values(cls, left: Any, right: Any) -> tuple[Any, Any]:
-        if left is BLANK and right is BLANK:
-            return Decimal(0), Decimal(0)
-        if left is BLANK:
-            if isinstance(right, str): return "", right
-            if isinstance(right, bool): return False, right
-            if isinstance(right, (int, Decimal, float)): return Decimal(0), cls._numeric(right)
-            return left, right
-        if right is BLANK:
-            converted, other = cls._comparison_values(right, left)
-            return other, converted
-        if isinstance(left, (int, Decimal, float)) and not isinstance(left, bool) and isinstance(right, (int, Decimal, float)) and not isinstance(right, bool):
-            return cls._numeric(left), cls._numeric(right)
-        return left, right
-
-    @classmethod
-    def _sum(cls, vector: ColumnVector) -> Any:
-        if vector.row_count == 0:
-            return BLANK
-        values = [value for value in vector.values if value is not BLANK]
-        if not values:
-            return BLANK
-        total = Decimal(0)
-        for value in values:
-            total += cls._numeric(value)
-        return total
-
-    @staticmethod
-    def _count(vector: ColumnVector, *, allow_boolean: bool) -> Any:
-        if vector.row_count == 0:
-            return BLANK
-        count = 0
-        for value in vector.values:
-            if value is BLANK:
-                continue
-            if isinstance(value, bool) and not allow_boolean:
-                raise DaxEvaluationError("DAX_EVAL_TYPE", "COUNT does not support TRUE/FALSE values; use COUNTA")
-            count += 1
-        return count
-
-    @staticmethod
-    def _distinctcount(vector: ColumnVector) -> Any:
-        if vector.row_count == 0:
-            return BLANK
-        normalized = []
-        for value in vector.values:
-            if isinstance(value, (dict, list, set)):
-                raise DaxEvaluationError("DAX_EVAL_TYPE", "DISTINCTCOUNT requires scalar column values")
-            normalized.append(value)
-        return len(set(normalized))
-
-    @classmethod
-    def _average(cls, vector: ColumnVector) -> Any:
-        if vector.row_count == 0:
-            return BLANK
-        numeric: list[Decimal] = []
-        for value in vector.values:
-            if value is BLANK or isinstance(value, bool):
-                continue
-            if isinstance(value, str):
-                return BLANK
-            numeric.append(cls._numeric(value))
-        if not numeric:
-            return Decimal(0) if vector.row_count else BLANK
-        return sum(numeric, Decimal(0)) / Decimal(len(numeric))
-
-    @classmethod
-    def _minmax(cls, vector: ColumnVector, minimum: bool) -> Any:
-        if vector.row_count == 0:
-            return BLANK
-        values = [value for value in vector.values if value is not BLANK]
-        if not values:
-            return BLANK
-        if any(isinstance(value, (str, bool)) for value in values):
-            raise DaxEvaluationError("DAX_EVAL_TYPE", "MIN/MAX Level 1 column aggregation supports numeric/date/datetime values")
-        if all(isinstance(value, (int, Decimal, float)) and not isinstance(value, bool) for value in values):
-            converted = [cls._numeric(value) for value in values]
-            return min(converted) if minimum else max(converted)
-        try:
-            return min(values) if minimum else max(values)
-        except TypeError as exc:
-            raise DaxEvaluationError("DAX_EVAL_TYPE", "MIN/MAX column values are not comparable") from exc
+ def __init__(s,tables,measures=None,relationships=None):s.t={k.casefold():(k,tuple(v)) for k,v in tables.items()};s.m={k.casefold():{n.casefold():e for n,e in v.items()} for k,v in (measures or {}).items()};s.r=tuple(relationships or ());s.stack=[];s._rels()
+ @classmethod
+ def from_semantic_model(c,m,t):return c(t,{x.name:{y.name:y.expression for y in x.measures} for x in m.tables},[RelationshipBinding(r.name,r.from_table,r.from_column,r.to_table,r.to_column,getattr(r.cardinality,'value',r.cardinality),getattr(r.filter_direction,'value',r.filter_direction),r.active) for r in m.relationships])
+ def table(s,n):
+  try:return s.t[n.casefold()]
+  except KeyError as e:raise DaxEvaluationError('DAX_EVAL_TABLE_NOT_FOUND',n) from e
+ def val(s,row,c,t):
+  for k,v in row.items():
+   if k.casefold()==c.casefold():return v
+  raise DaxEvaluationError('DAX_EVAL_COLUMN_NOT_FOUND',f'{t}[{c}]')
+ def _rels(s):
+  p={k:k for k in s.t}
+  def f(x):
+   while p[x]!=x:x=p[x]
+   return x
+  for r in s.r:
+   if not r.active:continue
+   a,b=r.from_table.casefold(),r.to_table.casefold()
+   if a not in p or b not in p:raise DaxEvaluationError('DAX_EVAL_RELATIONSHIP_TABLE_NOT_FOUND',r.name)
+   a,b=f(a),f(b)
+   if a==b:raise DaxEvaluationError('DAX_EVAL_AMBIGUOUS_RELATIONSHIP',r.name)
+   p[b]=a
+ def direct(s,t,f):
+  n,rows=s.table(t);idx=set(f.row_indices.get(n.casefold(),range(len(rows))))
+  for x in f.ordered():
+   if x.table.casefold()==n.casefold():idx={i for i in idx if s.val(rows[i],x.column,n) in x.values}
+  return idx
+ def visible_map(s,f):
+  v={n:s.direct(n,f) for n,_ in s.t.values()};chg=True
+  while chg:
+   chg=False
+   for r in s.r:
+    if not r.active:continue
+    ds=[(r.to_table,r.to_column,r.from_table,r.from_column)] if r.cardinality=='one-to-many' else [(r.from_table,r.from_column,r.to_table,r.to_column)]
+    if r.filter_direction=='both':ds+=[(b,d,a,c) for a,c,b,d in ds]
+    for a,c,b,d in ds:
+     an,ar=s.table(a);bn,br=s.table(b)
+     if len(v[an])==len(ar):continue
+     allowed={s.val(ar[i],c,an) for i in v[an]};new={i for i in v[bn] if s.val(br[i],d,bn) in allowed}
+     if new!=v[bn]:v[bn]=new;chg=True
+  return v
+ def visible(s,t,f):n,_=s.table(t);return tuple(sorted(s.visible_map(f)[n]))
+ def evaluate(s,e,filter_context=None,row_context=None):return s.scalar(s.ev(parse_dax(e) if isinstance(e,str) else e,filter_context or FilterContext(),row_context or RowContext()))
+ def evaluate_rows(s,e,t,filter_context=None):f=filter_context or FilterContext();n,rows=s.table(t);a=parse_dax(e) if isinstance(e,str) else e;return tuple(s.scalar(s.ev(a,f,RowContext.for_row(n,rows[i]))) for i in s.visible(n,f))
+ def evaluate_measure(s,t,m,filter_context=None):return s.measure(t,m,filter_context or FilterContext())
+ def explain(s,e,filter_context=None):
+  a=parse_dax(e) if isinstance(e,str) else e;f=filter_context or FilterContext();direct=', '.join(f'{x.origin.value}:{x.table}[{x.column}]={sorted(x.values,key=repr)!r}' for x in f.ordered()) or 'none';rel=', '.join(f'{r.name}:{r.from_table}[{r.from_column}]->{r.to_table}[{r.to_column}]/{r.cardinality}/{r.filter_direction}' for r in s.r if r.active) or 'none';return '\n'.join(['1. parse: controlled immutable AST','2. direct-filter precedence: report -> page -> visual -> user (intersection)',f'3. direct filters: {direct}',f'4. relationship propagation: {rel}','5. CALCULATE: context transition, then modifiers/filters left-to-right; same-column filters replace unless KEEPFILTERS',f'6. evaluate: {a.to_dict()}'])
+ def measure(s,t,m,f):
+  k=(t.casefold(),m.casefold())
+  if k[0] not in s.m or k[1] not in s.m[k[0]]:raise DaxEvaluationError('DAX_EVAL_MEASURE_NOT_FOUND',m)
+  if k in s.stack:raise DaxEvaluationError('DAX_EVAL_MEASURE_CYCLE',m)
+  s.stack.append(k)
+  try:return s.evaluate(s.m[k[0]][k[1]],filter_context=f)
+  finally:s.stack.pop()
+ def ev(s,n,f,row):
+  if isinstance(n,Literal):return n.value
+  if isinstance(n,Reference):
+   tn,rows=s.table(n.table);cur=row.rows.get(tn.casefold())
+   if cur is not None:return s.val(cur,n.name,tn)
+   if tn.casefold() in s.m and n.name.casefold() in s.m[tn.casefold()]:return s.measure(tn,n.name,f)
+   I=s.visible(tn,f);return ColumnVector(tn,n.name,tuple(s.val(rows[i],n.name,tn) for i in I),len(I))
+  if isinstance(n,TableReference):tn,rows=s.table(n.table);I=s.visible(tn,f);return TableVector(tn,tuple(rows[i] for i in I),I)
+  if isinstance(n,UnaryOp):v=s.scalar(s.ev(n.operand,f,row));return not s.truth(v) if n.operator=='!' else (s.num(v,1) if n.operator=='+' else -s.num(v,1))
+  if isinstance(n,BinaryOp):
+   if n.operator=='&&':return s.truth(s.scalar(s.ev(n.left,f,row))) and s.truth(s.scalar(s.ev(n.right,f,row)))
+   if n.operator=='||':return s.truth(s.scalar(s.ev(n.left,f,row))) or s.truth(s.scalar(s.ev(n.right,f,row)))
+   a,b=s.scalar(s.ev(n.left,f,row)),s.scalar(s.ev(n.right,f,row))
+   if n.operator in '+-*/^':
+    a,b=s.num(a,1),s.num(b,1)
+    if n.operator=='+':return a+b
+    if n.operator=='-':return a-b
+    if n.operator=='*':return a*b
+    if n.operator=='/':
+     if not b:raise DaxEvaluationError('DAX_EVAL_DIVIDE_BY_ZERO','zero')
+     return a/b
+    return a**int(b)
+   a,b=s.cmp(a,b);return {'=':a==b,'<>':a!=b,'<':a<b,'<=':a<=b,'>':a>b,'>=':a>=b}[n.operator]
+  if isinstance(n,FunctionCall):return s.fn(n,f,row)
+ def fn(s,n,f,row):
+  lv=get_function(n.name).level
+  if lv==1:return s.l1(n,f,row)
+  if lv==2:return s.l2(n,f,row)
+  raise DaxEvaluationError('DAX_EVAL_UNSUPPORTED_LEVEL',n.name)
+ def col(s,a,f,r,name):
+  v=s.ev(a,f,r)
+  if not isinstance(v,ColumnVector):raise DaxEvaluationError('DAX_EVAL_TYPE',name)
+  return v
+ def l1(s,n,f,r):
+  name=n.name
+  if name in {'SUM','COUNT','COUNTA','DISTINCTCOUNT','AVERAGE'}:
+   v=s.col(n.arguments[0],f,r,name);vals=[x for x in v.values if x is not None]
+   if not v.row_count:return None
+   if name=='SUM':return sum((s.num(x) for x in vals),Decimal(0)) if vals else None
+   if name=='COUNT':
+    if any(isinstance(x,bool) for x in vals):raise DaxEvaluationError('DAX_EVAL_TYPE','COUNT bool')
+    return len(vals)
+   if name=='COUNTA':return len(vals)
+   if name=='DISTINCTCOUNT':return len(set(v.values))
+   nums=[s.num(x) for x in vals if not isinstance(x,bool)];return sum(nums,Decimal(0))/Decimal(len(nums)) if nums else Decimal(0)
+  if name=='COUNTROWS':t=s.ev(n.arguments[0],f,r);return len(t.rows) or None
+  if name in {'MIN','MAX'}:
+   if len(n.arguments)==2:a,b=s.cmp(s.scalar(s.ev(n.arguments[0],f,r)),s.scalar(s.ev(n.arguments[1],f,r)));return min(a,b) if name=='MIN' else max(a,b)
+   vals=[x for x in s.col(n.arguments[0],f,r,name).values if x is not None];return (min(vals) if name=='MIN' else max(vals)) if vals else None
+  if name=='DIVIDE':
+   a=s.num(s.scalar(s.ev(n.arguments[0],f,r)),1);b=s.scalar(s.ev(n.arguments[1],f,r));b=Decimal(0) if b is None else s.num(b)
+   if not b:return s.scalar(s.ev(n.arguments[2],f,r)) if len(n.arguments)==3 and isinstance(n.arguments[2],Literal) else None
+   return a/b
+  if name=='IF':return s.scalar(s.ev(n.arguments[1],f,r)) if s.truth(s.scalar(s.ev(n.arguments[0],f,r))) else (s.scalar(s.ev(n.arguments[2],f,r)) if len(n.arguments)>2 else None)
+  if name=='COALESCE':
+   for a in n.arguments:
+    v=s.scalar(s.ev(a,f,r))
+    if v is not None:return v
+   return None
+  if name=='SWITCH':
+   x=s.scalar(s.ev(n.arguments[0],f,r));z=n.arguments[1:];last=len(z)%2
+   for i in range(0,len(z)-last,2):
+    if s.cmp(x,s.scalar(s.ev(z[i],f,r)))[0]==s.cmp(x,s.scalar(s.ev(z[i],f,r)))[1]:return s.scalar(s.ev(z[i+1],f,r))
+   return s.scalar(s.ev(z[-1],f,r)) if last else None
+ def l2(s,n,f,r):
+  name=n.name
+  if name=='CALCULATE':
+   c=s.transition(f,r)
+   for x in n.arguments[1:]:c=s.calc_filter(x,c,r)
+   return s.ev(n.arguments[0],c,RowContext())
+  if name=='FILTER':
+   t=s.ev(n.arguments[0],f,r);rows=[];idx=[]
+   for j,x in enumerate(t.rows):
+    if s.truth(s.scalar(s.ev(n.arguments[1],f,r.add(t.table,x)))):rows.append(x);idx.append(t.indices[j] if t.indices else j)
+   return TableVector(t.table,tuple(rows),tuple(idx),t.replace)
+  if name in {'VALUES','DISTINCT'}:
+   a=n.arguments[0]
+   if isinstance(a,Reference):v=s.col(a,f,r,name);u=s.unique(v.values);return TableVector(v.table,tuple({v.column:x} for x in u))
+   t=s.ev(a,f,r)
+   if name=='VALUES':return t
+   q=[]
+   for x in t.rows:
+    if x not in q:q.append(x)
+   return TableVector(t.table,tuple(q))
+  if name=='SELECTEDVALUE':u=s.unique(s.col(n.arguments[0],f,r,name).values);return u[0] if len(u)==1 else (s.scalar(s.ev(n.arguments[1],f,r)) if len(n.arguments)>1 else None)
+  if name=='HASONEVALUE':return len(s.unique(s.col(n.arguments[0],f,r,name).values))==1
+  if name=='ISFILTERED':a=n.arguments[0];return f.is_direct(a.table,a.name)
+  if name=='ALL':return s.all(n)
+  raise DaxEvaluationError('DAX_EVAL_MODIFIER_CONTEXT',name)
+ def transition(s,f,r):
+  c=f
+  for t,row in r.rows.items():
+   n,_=s.table(t)
+   for k,v in row.items():c=c.drop_col(n,k).with_values(n,k,[v],FilterOrigin.CONTEXT_TRANSITION)
+  return c
+ def calc_filter(s,n,f,r):
+  keep=False
+  if isinstance(n,FunctionCall):
+   if n.name=='KEEPFILTERS':n=n.arguments[0];keep=True
+   elif n.name in {'ALL','REMOVEFILTERS'}:return s.remove(n,f)
+   elif n.name=='ALLEXCEPT':return f.keep_cols(n.arguments[0].table,{x.name for x in n.arguments[1:]})
+  if isinstance(n,FunctionCall) and n.name=='FILTER':
+   t=s.l2(n,f,r);base=f if keep else (f.drop_table(t.table) if t.replace else f);d=dict(base.row_indices);d[t.table.casefold()]=frozenset(t.indices or ());return FilterContext(d,base.direct_filters)
+  refs=collect_references(n)
+  if len(refs)!=1:raise DaxEvaluationError('DAX_EVAL_FILTER_SHAPE','one column')
+  a=refs[0];base=f if keep else f.drop_col(a.table,a.name);tn,rows=s.table(a.table);vals=[]
+  for i in s.visible(tn,base):
+   if s.truth(s.scalar(s.ev(n,base,r.add(tn,rows[i])))):vals.append(s.val(rows[i],a.name,tn))
+  return base.with_values(tn,a.name,vals,FilterOrigin.CALCULATE)
+ def remove(s,n,f):
+  if not n.arguments:return f.clear()
+  if len(n.arguments)==1 and isinstance(n.arguments[0],TableReference):return f.drop_table(n.arguments[0].table)
+  c=f
+  for a in n.arguments:c=c.drop_col(a.table,a.name)
+  return c
+ def all(s,n):
+  if len(n.arguments)==1 and isinstance(n.arguments[0],TableReference):t,rows=s.table(n.arguments[0].table);return TableVector(t,rows,tuple(range(len(rows))),True)
+  raise DaxEvaluationError('DAX_EVAL_MODIFIER_CONTEXT','ALL columns only as modifier')
+ @staticmethod
+ def scalar(v):
+  if isinstance(v,(ColumnVector,TableVector)):raise DaxEvaluationError('DAX_EVAL_SCALAR','not scalar')
+  return v
+ @staticmethod
+ def truth(v):return False if v is None else v if isinstance(v,bool) else v!=0 if isinstance(v,(int,float,Decimal)) else v!=''
+ @staticmethod
+ def num(v,blank=0):
+  if v is None:
+   if blank:return Decimal(0)
+   raise DaxEvaluationError('DAX_EVAL_TYPE','blank')
+  if isinstance(v,bool):raise DaxEvaluationError('DAX_EVAL_TYPE','bool')
+  try:return v if isinstance(v,Decimal) else Decimal(str(v))
+  except InvalidOperation as e:raise DaxEvaluationError('DAX_EVAL_TYPE','numeric') from e
+ @classmethod
+ def cmp(c,a,b):
+  if a is None:a='' if isinstance(b,str) else False if isinstance(b,bool) else Decimal(0)
+  if b is None:b='' if isinstance(a,str) else False if isinstance(a,bool) else Decimal(0)
+  if isinstance(a,(int,float,Decimal)) and not isinstance(a,bool) and isinstance(b,(int,float,Decimal)) and not isinstance(b,bool):a,b=c.num(a),c.num(b)
+  return a,b
+ @staticmethod
+ def unique(v):
+  q=[]
+  for x in v:
+   if x not in q:q.append(x)
+  return tuple(q)
