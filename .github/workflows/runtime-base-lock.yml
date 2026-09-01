@@ -1,0 +1,31 @@
+name: Inspect runtime base images
+
+on:
+  push:
+    paths:
+      - '.github/workflows/runtime-base-lock.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve immutable base image digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          images=(
+            'python:3.11-slim'
+            'eclipse-temurin:11-jre-noble'
+            'eclipse-temurin:17.0.20_8-jre-jammy'
+          )
+          for image in "${images[@]}"; do
+            docker pull --platform linux/amd64 "${image}" >/dev/null
+            digest="$(docker image inspect "${image}" --format '{{index .RepoDigests 0}}')"
+            test -n "${digest}"
+            echo "BASE_IMAGE=${digest}"
+            echo "- \`${digest}\`" >> "${GITHUB_STEP_SUMMARY}"
+          done
