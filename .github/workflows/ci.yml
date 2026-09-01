@@ -103,8 +103,12 @@ jobs:
       - name: Validate Kubernetes manifests
         shell: bash
         run: |
+          set -euo pipefail
           for file in k8s/*.yaml; do
-            kubectl apply --dry-run=client --validate=strict -f "$file" >/dev/null
+            # Client-side strict validation requires a configured API server/OpenAPI
+            # endpoint. GitHub-hosted runners do not have a cluster, so parse every
+            # manifest offline here; strict validation remains part of the Minikube gate.
+            kubectl create --dry-run=client --validate=false -f "$file" >/dev/null
           done
       - name: Verify controller image pin consistency
         shell: bash
