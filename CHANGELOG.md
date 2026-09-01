@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-01 — Power BI emulation Day 7 (ejecución anticipada)
+
+- Added versioned query contracts and `POST /api/v1/models/{id}/query`.
+- Added deterministic query plans with scan/filter/join/aggregate/project nodes.
+- Added bounded grouped DAX execution and typed tabular result adaptation.
+- Added safe Arrow/in-memory DuckDB materialization with no caller SQL.
+- Added stable pagination, maximum-row warnings and cooperative timeout/cancellation.
+- Added cache identity by model/revision/query/filter context/data revision/data/user with pagination reuse.
+- Added rows, bytes, duration, planning/execution, returned-row, cache-hit and backend metrics.
+- Updated the stale SemanticModel JSON schema to include Day 3 relationships/dependencies and added versioned query schemas.
+- Report/visual runtime remains Day 8 scope.
+
 ## 2026-09-01 — Power BI emulation Day 6 (ejecución anticipada)
 
 - Added controlled DAX Level 2 filter-context execution.
@@ -8,16 +20,10 @@
 - Added active relationship propagation for one-to-many and controlled many-to-many paths, including bidirectional relationships.
 - Added same-column CALCULATE replacement semantics and KEEPFILTERS intersection.
 - Added early rejection of cyclic/ambiguous active relationship graphs.
-- Added deterministic textual evaluation-plan evidence and focused Level 2 tests.
-- Query planner/executor/cache remain Day 7 scope.
 
 ## 2026-09-01 — Power BI emulation Day 5 (ejecución anticipada)
 
-- Added DAX Level 1 evaluator over local in-memory datasets.
-- Added initial per-table filter context and basic row context.
-- Added column/literal evaluation and controlled `COUNTROWS(Table)` table references.
-- Added `SUM`, `COUNT`, `COUNTA`, `COUNTROWS`, `DISTINCTCOUNT`, `AVERAGE`, `MIN` and `MAX`.
-- Added `DIVIDE`, `IF`, `SWITCH` and `COALESCE`, BLANK/null semantics, Decimal arithmetic and measure evaluation.
+- Added DAX Level 1 evaluator, filter/row context, aggregations/logical functions, BLANK/null semantics, Decimal arithmetic and measures.
 
 ## 2026-09-01 — Power BI emulation Day 4 (ejecución anticipada)
 
