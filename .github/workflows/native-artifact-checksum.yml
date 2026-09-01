@@ -1,0 +1,55 @@
+name: Verify Gluten native artifact
+
+on:
+  push:
+    paths:
+      - '.github/workflows/native-artifact-checksum.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checksum:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download exact Gluten artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact='apache-gluten-1.6.0-bin-spark-3.5.tar.gz'
+          urls=(
+            "https://dlcdn.apache.org/gluten/1.6.0/${artifact}"
+            "https://archive.apache.org/dist/gluten/1.6.0/${artifact}"
+            "https://www.artfiles.org/apache.org/gluten/1.6.0/${artifact}"
+          )
+          for url in "${urls[@]}"; do
+            echo "Trying ${url}"
+            if curl --fail --location --retry 3 --retry-delay 2 --output "${artifact}" "${url}"; then
+              break
+            fi
+          done
+          test -s "${artifact}"
+          test "$(stat -c%s "${artifact}")" -eq 107838606
+
+      - name: Verify SHA-512 and calculate SHA-256
+        id: checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact='apache-gluten-1.6.0-bin-spark-3.5.tar.gz'
+          expected_sha512='b087e962bc244d3ba4b687a953ca508182f43da962a7674d68bd9727191d6a6d124b843acefd70836cdd00647d35a45ffacd20c8989237e0d8c92c4289093a5c'
+          actual_sha512="$(sha512sum "${artifact}" | awk '{print $1}')"
+          test "${actual_sha512}" = "${expected_sha512}"
+          sha256="$(sha256sum "${artifact}" | awk '{print $1}')"
+          echo "SHA512_VERIFIED=${actual_sha512}"
+          echo "SHA256=${sha256}"
+          echo "sha256=${sha256}" >> "${GITHUB_OUTPUT}"
+          {
+            echo '## Gluten 1.6.0 Spark 3.5 checksum evidence'
+            echo
+            echo "- SHA-512 verified: \`${actual_sha512}\`"
+            echo "- SHA-256 calculated: \`${sha256}\`"
+            echo '- Size verified: `107838606` bytes'
+          } >> "${GITHUB_STEP_SUMMARY}"
