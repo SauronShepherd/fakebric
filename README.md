@@ -11,19 +11,20 @@ uvicorn fakebric.app:app --reload
 
 Power BI emulation is under active development on `codex/powerbi-emulation` following `POWERBI_EMULATION_SPEC.md` and `POWERBI_EMULATION_BUILD_PLAN_13_DAYS.md`. The implementation is Linux-first and intentionally exposes only documented compatible behavior.
 
-Days 1–3 established versioned semantic/report contracts, typed tables/sources, relationships and structured model validation. Day 4 added a controlled DAX lexer/parser and immutable JSON-serializable AST with limits and structured diagnostics.
+Days 1–3 established versioned semantic/report contracts, typed tables/sources, relationships and structured model validation. Day 4 added the controlled DAX parser/AST. Day 5 added Level 1 aggregation and logic evaluation.
 
-Day 5 adds local DAX Level 1 evaluation over in-memory datasets: initial filter context, row context, literals/column evaluation, `SUM`, `COUNT`, `COUNTA`, `COUNTROWS`, `DISTINCTCOUNT`, `AVERAGE`, `MIN`, `MAX`, `DIVIDE`, `IF`, `SWITCH` and `COALESCE`. Results use `Decimal` for stable numeric behavior and preserve BLANK distinctly from zero. See `docs/DAX_LEVEL1_SEMANTICS.md`.
+Day 6 adds the core Level 2 filter-context behavior: `CALCULATE`, `FILTER`, `ALL`, `ALLEXCEPT`, `REMOVEFILTERS`, `KEEPFILTERS`, `VALUES`, `DISTINCT`, `SELECTEDVALUE`, `HASONEVALUE` and `ISFILTERED`; context transition; report/page/visual/user direct-filter ordering; active relationship propagation; and deterministic rejection of ambiguous active relationship graphs.
 
 ```bash
 python -m pytest -q \
   tests/test_dax_parser.py \
   tests/test_dax_golden.py \
   tests/test_dax_security.py \
-  tests/test_dax_evaluator.py
+  tests/test_dax_evaluator.py \
+  tests/test_dax_level2.py
 ```
 
-Level 2 functions such as `CALCULATE`, `FILTER`, `ALL` and relationship-driven filter propagation parse but deliberately fail at evaluation until Day 6.
+See `docs/DAX_LEVEL1_SEMANTICS.md`, `docs/DAX_LEVEL2_SEMANTICS.md` and `docs/DAX_FUNCTION_CATALOG.md`. Query planning, DuckDB/Arrow execution, pagination, cancellation and query caching remain Day 7 scope.
 
 Parquet support uses `pyarrow` from `requirements.txt`. File-backed sources are resolved under a caller-supplied workspace root; traversal and absolute paths outside that root are rejected.
 

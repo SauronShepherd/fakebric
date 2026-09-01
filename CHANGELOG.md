@@ -1,42 +1,36 @@
 # Changelog
 
+## 2026-09-01 — Power BI emulation Day 6 (ejecución anticipada)
+
+- Added controlled DAX Level 2 filter-context execution.
+- Added `CALCULATE`, `FILTER`, `ALL`, `ALLEXCEPT`, `REMOVEFILTERS`, `KEEPFILTERS`, `VALUES`, `DISTINCT`, `SELECTEDVALUE`, `HASONEVALUE` and `ISFILTERED`.
+- Added context transition and deterministic direct-filter ordering for report/page/visual/user origins.
+- Added active relationship propagation for one-to-many and controlled many-to-many paths, including bidirectional relationships.
+- Added same-column CALCULATE replacement semantics and KEEPFILTERS intersection.
+- Added early rejection of cyclic/ambiguous active relationship graphs.
+- Added deterministic textual evaluation-plan evidence and focused Level 2 tests.
+- Query planner/executor/cache remain Day 7 scope.
+
 ## 2026-09-01 — Power BI emulation Day 5 (ejecución anticipada)
 
 - Added DAX Level 1 evaluator over local in-memory datasets.
 - Added initial per-table filter context and basic row context.
 - Added column/literal evaluation and controlled `COUNTROWS(Table)` table references.
 - Added `SUM`, `COUNT`, `COUNTA`, `COUNTROWS`, `DISTINCTCOUNT`, `AVERAGE`, `MIN` and `MAX`.
-- Added `DIVIDE`, `IF`, `SWITCH` and `COALESCE` with lazy branch evaluation where applicable.
-- Added explicit BLANK/null semantics and stable Decimal arithmetic.
-- Added structured evaluation errors for missing tables/columns, scalar misuse, incompatible types and unsafe raw division by zero.
-- Added measure evaluation against the same filter context.
-- Added Level 1 golden results and regression coverage for the Day 4 parser.
-- `CALCULATE`, Level 2 filters and relationship propagation remain deliberately unavailable until Day 6.
+- Added `DIVIDE`, `IF`, `SWITCH` and `COALESCE`, BLANK/null semantics, Decimal arithmetic and measure evaluation.
 
 ## 2026-09-01 — Power BI emulation Day 4 (ejecución anticipada)
 
-- Added controlled DAX lexer and precedence parser.
-- Added immutable, JSON-serializable AST nodes for literals, references, unary/binary operators and function calls.
-- Added qualified table/member references, strings, numbers and DAX `dt"..."` date/datetime literals.
-- Added structured diagnostics with code, line, column, token and message.
-- Added expression length, token, nesting-depth and AST-complexity limits.
-- Added deterministic rejection of unknown functions, ambiguous references/comparisons and non-DAX syntax.
-- Added published parser function catalog plus AST golden and parser-security tests.
+- Added controlled DAX lexer, precedence parser, immutable serializable AST, diagnostics, limits, catalog and golden/security tests.
 
 ## 2026-09-01 — Power BI emulation Day 3 (ejecución anticipada)
 
-- Added typed relationships for one-to-one, one-to-many and many-to-many cardinalities.
-- Added single/both filter direction and active/inactive relationship behavior.
-- Added primary-key and date-table metadata.
-- Added structured dependency references and structured model validation.
-- Added `POST /api/v1/models/{id}/validate` on the semantic-model service/router.
+- Added typed relationships, filter direction, active/inactive behavior, primary/date metadata, dependencies and structured model validation.
 
 ## 2026-09-01 — Power BI emulation Day 2 (ejecución anticipada)
 
-- Added `Table`, `Column`, `Measure` and `DataSource` semantic contracts.
-- Added supported scalar types, CSV/JSONL/Parquet/Fakebrick sources, inference, conversion, profiles and path security.
+- Added typed semantic tables/columns/measures/data sources, supported scalar types, CSV/JSONL/Parquet/Fakebrick sources, inference, conversion, profiles and path security.
 
 ## 2026-09-01 — Power BI emulation Day 1
 
-- Added versioned Pydantic contracts for `SemanticModel` and `Report`.
-- Added lifecycle states, standard errors, deterministic ETags, revision repository, migration scaffold and feature flag.
+- Added versioned SemanticModel/Report contracts, lifecycle states, standard errors, ETags, revision repository, migration scaffold and feature flag.

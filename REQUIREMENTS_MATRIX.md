@@ -12,8 +12,9 @@ Estados: `implemented` = evidencia automatizada o de runtime; `partial` = contra
 | SemanticModel contracts | partial | Días 1–3: tablas/columnas/medidas/fuentes, relaciones 1:1/1:N/N:M, PK/date table, validador estructurado | jerarquías/perspectivas y semántica completa |
 | Model validation | partial | ciclos, ambigüedad, duplicados, tipos incompatibles y endpoint `/api/v1/models/{id}/validate` | integración persistida completa y validación DAX más profunda |
 | Power BI data sources | partial | CSV, JSONL, Parquet y tablas Fakebrick; inferencia/perfiles | SQL registrado y storage durable |
-| DAX parser | partial | Día 4: lexer, precedencia, AST inmutable/serializable, referencias calificadas, literales, diagnósticos, límites y catálogo | ampliar gramática según niveles posteriores |
-| DAX evaluation | partial | Día 5: contexto de filtro inicial/row context, evaluación de columnas/literales, agregaciones N1, DIVIDE/IF/SWITCH/COALESCE, BLANK y Decimal; golden tests | Día 6: CALCULATE, funciones de filtro, propagación de relaciones, precedencia de filtros y transición de contexto |
+| DAX parser | partial | Día 4: lexer, precedencia, AST inmutable/serializable, diagnósticos, límites y catálogo | ampliar gramática según niveles posteriores |
+| DAX evaluation N1 | implemented | Día 5: agregaciones/lógica, BLANK, Decimal, contexto de fila y medidas | endurecimiento y cobertura final Días 11–13 |
+| DAX filter context N2 | partial | Día 6: CALCULATE/FILTER/ALL/ALLEXCEPT/REMOVEFILTERS/KEEPFILTERS/VALUES/DISTINCT/SELECTEDVALUE/HASONEVALUE/ISFILTERED, transición de contexto, filtros por capa y propagación activa 1:N/N:M | compatibilidad DAX completa no pretendida; endurecimiento y más combinaciones en Días 11–13 |
 | Query engine Power BI | unsupported | todavía sin planner/ejecutor/caché | Día 7 |
 | Reports Power BI | partial | contrato base `Report` | páginas/visuales/runtime Días 8–9 |
 | CI/release | partial | tests focalizados y checks estáticos definidos | suite completa, Parquet runtime y gates Días 10–13 |
@@ -21,4 +22,4 @@ Estados: `implemented` = evidencia automatizada o de runtime; `partial` = contra
 
 ## Gate actual
 
-La batería reconstruida del Día 5 ejecutó 35 tests correctamente: 17 del evaluador N1 y regresión del parser/golden/security del Día 4. `python -m compileall -q fakebric tests` fue PASS. La rama no había avanzado en paralelo antes del commit funcional. No se considera validada todavía la suite histórica completa, el runtime Parquet ni el E2E Power BI.
+Antes del commit funcional del Día 6, una reconstrucción focalizada del diseño ejecutó 51 tests correctamente e incluyó regresión de parser/seguridad/N1 más los escenarios N2. La versión compacta finalmente publicada se volvió a comprobar con un smoke integrado de CALCULATE, KEEPFILTERS, propagación y `compileall`. La suite histórica completa y el E2E Power BI siguen pendientes de CI/gates posteriores; no se consideran validados por esta ejecución local.
