@@ -21,7 +21,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     FAKEBRIC_NATIVE_EXECUTION_ENABLED=false \
     FAKEBRIC_NATIVE_RUNTIME_PRESENT=true \
-    GLUTEN_HOME=/opt/gluten
+    GLUTEN_HOME=/opt/gluten \
+    GLUTEN_BUNDLE_JAR=/opt/gluten/gluten-velox-bundle.jar
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl tini libstdc++6 libgcc-s1 libgomp1 libnuma1 \
@@ -39,10 +40,14 @@ RUN set -eux; \
     echo "${GLUTEN_SHA256}  /tmp/${GLUTEN_ARTIFACT}" | sha256sum -c -; \
     mkdir -p /opt/gluten; \
     tar -xzf "/tmp/${GLUTEN_ARTIFACT}" -C /opt/gluten; \
+    bundle="$(find /opt/gluten -type f -name 'gluten-velox-bundle-spark3.5_2.12-linux_amd64-1.6.0.jar' -print -quit)"; \
+    test -n "${bundle}"; \
+    ln -s "${bundle}" /opt/gluten/gluten-velox-bundle.jar; \
     printf '%s\n' \
       "gluten=${GLUTEN_VERSION}" \
       "velox=${VELOX_COMMIT}" \
       "artifact=${GLUTEN_ARTIFACT}" \
+      "bundle=${bundle}" \
       "sha256=${GLUTEN_SHA256}" \
       "sha512=${GLUTEN_SHA512}" \
       > /opt/gluten/FAKEBRIC_RUNTIME_LOCK; \
@@ -54,6 +59,7 @@ RUN useradd --create-home --uid 10001 fakebric \
 
 COPY runtime/execute_notebook.py /opt/fakebric/execute_notebook.py
 COPY runtime/runtime_versions.py /opt/fakebric/runtime_versions.py
+COPY runtime/native_smoke.py /opt/fakebric/native_smoke.py
 COPY runtime/native-sbom.spdx.json /opt/fakebric/native-sbom.spdx.json
 COPY runtime/native-artifact-checksums.txt /opt/fakebric/native-artifact-checksums.txt
 COPY fakebric/notebook_contract.py /opt/fakebric/notebook_contract.py
