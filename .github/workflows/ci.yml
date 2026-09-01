@@ -15,8 +15,9 @@ jobs:
       - name: Static checks
         shell: bash
         run: |
-          python -m compileall -q fakebric tools tests
+          python -m compileall -q fakebric tools tests runtime/runtime_versions.py
           python tools/production_gate.py --profile local
+          python -m json.tool runtime/native-sbom.spdx.json >/dev/null
           node --check fakebric/static/app.js
   images-and-manifests:
     runs-on: ubuntu-latest
@@ -39,20 +40,66 @@ jobs:
           push: false
           load: true
           tags: fakebric-controller:ci
-      - name: Build runtime image
+      - name: Build JVM runtime image
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: runtime/Dockerfile
           push: false
           load: true
           tags: fakebric-runtime:ci
-      - name: Execute Spark notebook smoke test
+      - name: Validate JVM runtime versions and non-root identity
+        shell: bash
         run: |
+          set -euo pipefail
+          docker run --rm --entrypoint python fakebric-runtime:ci /opt/fakebric/runtime_versions.py > jvm-runtime-versions.json
+          grep -Fq '"python": "3.11.' jvm-runtime-versions.json
+          grep -Fq '11.0.' jvm-runtime-versions.json
+          grep -Fq '3.5.5' jvm-runtime-versions.json
+          grep -Fq '"uid": 10001' jvm-runtime-versions.json
+          grep -Fq '"nativeRuntimePresent": false' jvm-runtime-versions.json
+          grep -Fq '"nativeExecutionEnabled": "false"' jvm-runtime-versions.json
+      - name: Execute Spark notebook smoke test on JVM runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_dir="$RUNNER_TEMP/fakebric-runtime-smoke"
+          mkdir -p "$smoke_dir"
+          cp runtime/spark_smoke.ipynb "$smoke_dir/spark_smoke.ipynb"
+          chmod 777 "$smoke_dir"
+          chmod 666 "$smoke_dir/spark_smoke.ipynb"
           docker run --rm --user 10001:10001 \
-            -v "$PWD/runtime:/workspace/runtime" \
+            -v "$smoke_dir:/workspace/runtime" \
             --entrypoint python fakebric-runtime:ci \
             /opt/fakebric/execute_notebook.py /workspace/runtime/spark_smoke.ipynb --timeout 120
-          grep -q "fakebric-spark-ok" runtime/spark_smoke.ipynb
+          grep -q "fakebric-spark-ok" "$smoke_dir/spark_smoke.ipynb"
+      - name: Build native-capable runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: runtime/native.Dockerfile
+          push: false
+          load: true
+          tags: fakebric-runtime-native:ci
+      - name: Validate native runtime inventory while native stays disabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint python fakebric-runtime-native:ci /opt/fakebric/runtime_versions.py > native-runtime-versions.json
+          grep -Fq '"python": "3.11.' native-runtime-versions.json
+          grep -Fq '17.0.20' native-runtime-versions.json
+          grep -Fq '3.5.5' native-runtime-versions.json
+          grep -Fq '"uid": 10001' native-runtime-versions.json
+          grep -Fq '"nativeRuntimePresent": true' native-runtime-versions.json
+          grep -Fq '"nativeExecutionEnabled": "false"' native-runtime-versions.json
+          grep -Fq 'gluten=1.6.0' native-runtime-versions.json
+          grep -Fq 'velox=34338bfe5a95c895c90bb8fbbe2dfeeb04466087' native-runtime-versions.json
+          docker run --rm --entrypoint sh fakebric-runtime-native:ci -c 'test -s /opt/fakebric/native-sbom.spdx.json && test -s /opt/fakebric/native-artifact-checksums.txt && find /opt/gluten -type f -print -quit | grep -q .'
+      - name: Start Spark JVM path inside native-capable image with plugin disabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --memory=3g --cpus=2 --entrypoint python fakebric-runtime-native:ci -c 'from pyspark.sql import SparkSession; s=SparkSession.builder.master("local[1]").appName("fakebric-day2-jvm-smoke").config("spark.ui.enabled","false").getOrCreate(); assert s.range(10).count() == 10; assert s.conf.get("spark.plugins", "") == ""; print("fakebric-native-image-jvm-path-ok"); s.stop()'
       - name: Validate Kubernetes manifests
         shell: bash
         run: |

@@ -1,0 +1,66 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "fakebric-runtime-native-1.3-preliminary",
+  "documentNamespace": "https://github.com/SauronShepherd/fakebric/sbom/runtime-native/1.3/day2",
+  "creationInfo": {
+    "created": "2026-09-01T00:00:00Z",
+    "creators": ["Tool: Fakebric Day 2 runtime inventory"]
+  },
+  "packages": [
+    {
+      "name": "Python",
+      "SPDXID": "SPDXRef-Python",
+      "versionInfo": "3.11",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "PSF-2.0"
+    },
+    {
+      "name": "Eclipse Temurin JRE",
+      "SPDXID": "SPDXRef-Temurin17",
+      "versionInfo": "17.0.20+8",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "GPL-2.0-only WITH Classpath-exception-2.0"
+    },
+    {
+      "name": "Apache Spark",
+      "SPDXID": "SPDXRef-Spark",
+      "versionInfo": "3.5.5",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0"
+    },
+    {
+      "name": "Apache Gluten",
+      "SPDXID": "SPDXRef-Gluten",
+      "versionInfo": "1.6.0",
+      "downloadLocation": "https://dlcdn.apache.org/gluten/1.6.0/apache-gluten-1.6.0-bin-spark-3.5.tar.gz",
+      "filesAnalyzed": false,
+      "checksums": [
+        {"algorithm": "SHA256", "checksumValue": "90f9ec6ac964bcd73893c661a9133e46afc46f8b2fa9e17c647fb3939b8b6d43"},
+        {"algorithm": "SHA512", "checksumValue": "b087e962bc244d3ba4b687a953ca508182f43da962a7674d68bd9727191d6a6d124b843acefd70836cdd00647d35a45ffacd20c8989237e0d8c92c4289093a5c"}
+      ],
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0"
+    },
+    {
+      "name": "Velox",
+      "SPDXID": "SPDXRef-Velox",
+      "versionInfo": "34338bfe5a95c895c90bb8fbbe2dfeeb04466087",
+      "downloadLocation": "https://github.com/IBM/velox.git",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0"
+    }
+  ],
+  "relationships": [
+    {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-Gluten"},
+    {"spdxElementId": "SPDXRef-Gluten", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Velox"}
+  ]
+}
