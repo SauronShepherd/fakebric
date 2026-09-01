@@ -7,6 +7,16 @@ pip install -r requirements.txt
 uvicorn fakebric.app:app --reload
 ```
 
+## Power BI emulation MVP
+
+Power BI emulation is under active development on `codex/powerbi-emulation` following `POWERBI_EMULATION_SPEC.md` and `POWERBI_EMULATION_BUILD_PLAN_13_DAYS.md`. The implementation is Linux-first and intentionally exposes only documented compatible behavior; unsupported capabilities must fail deterministically rather than silently emulating full Power BI/PBIX compatibility.
+
+Day 1 establishes versioned `SemanticModel` and `Report` Pydantic contracts, generated JSON Schemas, lifecycle states (`Draft`, `Published`, `Archived`), standard error codes, optimistic concurrency through ETags, a migration registry, immutable revision snapshots and the `FAKEBRIC_POWERBI_EMULATION` feature flag. The flag is disabled by default.
+
+```bash
+FAKEBRIC_POWERBI_EMULATION=true python -m pytest -q tests/test_semantic_model.py tests/test_reports.py
+```
+
 ## Validación local y Minikube
 
 La comprobación reproducible del control plane es:
@@ -34,8 +44,7 @@ For a self-contained Minikube deployment, run `make dev-up` (override
 `MINIKUBE_PROFILE` and `KUBE_CONTEXT` when using a different profile).
 On Windows without GNU Make, run `./dev-up.ps1` instead.
 
-Semantic Model and Report are represented as extensible item types, while
-their domain-specific authoring remains future MVP scope.
+Semantic Model and Report are represented as extensible item types. Their Power BI-compatible domain authoring is being added incrementally according to the 13-day plan; capabilities not yet implemented remain unsupported.
 
 Environments are edited as `Draft` definitions and are published explicitly
 with `POST /api/v1/items/{id}/publish` using a 64-hex SHA-256 OCI digest;
