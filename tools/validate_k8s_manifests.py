@@ -29,9 +29,12 @@ def main(args: list[str]) -> int:
     if not args:
         raise ValueError("at least one Kubernetes manifest is required")
     for raw_path in args:
-        path = Path(raw_path)
-        validate_manifest(path)
-        print(f"validated {path}")
+        paths = sorted(Path().glob(raw_path)) if any(char in raw_path for char in "*?[") else [Path(raw_path)]
+        if not paths:
+            raise FileNotFoundError(f"no manifests matched: {raw_path}")
+        for path in paths:
+            validate_manifest(path)
+            print(f"validated {path}")
     return 0
 
 

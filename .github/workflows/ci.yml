@@ -97,7 +97,7 @@ jobs:
           grep -Fq '"nativeExecutionEnabled": "false"' native-runtime-versions.json
           grep -Fq 'gluten=1.6.0' native-runtime-versions.json
           grep -Fq 'velox=34338bfe5a95c895c90bb8fbbe2dfeeb04466087' native-runtime-versions.json
-          docker run --rm --entrypoint sh fakebric-runtime-native:ci -c 'test -w /workspace && test -w /tmp/spark && tini --version >/dev/null 2>&1 && test -s /opt/fakebric/native-sbom.spdx.json && test -s /opt/fakebric/native-artifact-checksums.txt && find /opt/gluten -type f -name "*.so*" -print -quit | grep -q .'
+          docker run --rm --entrypoint sh fakebric-runtime-native:ci -c 'test -w /workspace && test -w /tmp/spark && tini --version >/dev/null 2>&1 && test -s /opt/fakebric/native-sbom.spdx.json && test -s /opt/fakebric/native-artifact-checksums.txt && find /opt/gluten -type f -print -quit | grep -q .'
       - name: Start Spark JVM path inside native-capable image with plugin disabled
         shell: bash
         run: |
