@@ -1,0 +1,9 @@
+{
+  "arguments": [
+    {"kind": "binary", "left": {"kind": "reference", "name": "Amount", "table": "Sales"}, "operator": ">", "right": {"kind": "literal", "literalType": "integer", "value": 0}},
+    {"kind": "literal", "literalType": "string", "value": "positive"},
+    {"kind": "literal", "literalType": "blank", "value": null}
+  ],
+  "kind": "function",
+  "name": "IF"
+}

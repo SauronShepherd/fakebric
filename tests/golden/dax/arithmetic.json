@@ -1,0 +1,6 @@
+{
+  "kind": "binary",
+  "left": {"kind": "literal", "literalType": "integer", "value": 1},
+  "operator": "+",
+  "right": {"kind": "binary", "left": {"kind": "literal", "literalType": "integer", "value": 2}, "operator": "*", "right": {"kind": "literal", "literalType": "integer", "value": 3}}
+}
