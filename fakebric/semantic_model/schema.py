@@ -25,6 +25,37 @@ class DataSourceType(str, Enum):
     FAKEBRICK = "fakebrick"
 
 
+class RelationshipCardinality(str, Enum):
+    ONE_TO_ONE = "one-to-one"
+    ONE_TO_MANY = "one-to-many"
+    MANY_TO_MANY = "many-to-many"
+
+
+class FilterDirection(str, Enum):
+    SINGLE = "single"
+    BOTH = "both"
+
+
+class DependencyKind(str, Enum):
+    TABLE = "table"
+    COLUMN = "column"
+    MEASURE = "measure"
+
+
+class DependencyRef(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: DependencyKind
+    table: str = Field(min_length=1)
+    name: str | None = None
+
+    @model_validator(mode="after")
+    def require_member_name(self) -> "DependencyRef":
+        if self.kind in {DependencyKind.COLUMN, DependencyKind.MEASURE} and not self.name:
+            raise ValueError(f"{self.kind.value} dependency requires name")
+        return self
+
+
 class DataSource(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -63,6 +94,8 @@ class Column(BaseModel):
     type: DataType
     nullable: bool = True
     source_name: str | None = Field(default=None, alias="sourceName")
+    is_primary_key: bool = Field(default=False, alias="isPrimaryKey")
+    depends_on: list[DependencyRef] = Field(default_factory=list, alias="dependsOn")
 
     @property
     def physical_name(self) -> str:
@@ -70,19 +103,22 @@ class Column(BaseModel):
 
 
 class Measure(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     name: str = Field(min_length=1)
     expression: str = Field(min_length=1)
+    depends_on: list[DependencyRef] = Field(default_factory=list, alias="dependsOn")
 
 
 class Table(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     name: str = Field(min_length=1)
     source: DataSource
     columns: list[Column] = Field(default_factory=list)
     measures: list[Measure] = Field(default_factory=list)
+    is_date_table: bool = Field(default=False, alias="isDateTable")
+    date_column: str | None = Field(default=None, alias="dateColumn")
 
     @model_validator(mode="after")
     def unique_names(self) -> "Table":
@@ -103,10 +139,39 @@ class Table(BaseModel):
                 return column
         raise KeyError(f"column {name!r} does not exist in table {self.name!r}")
 
+    def measure(self, name: str) -> Measure:
+        normalized = name.casefold()
+        for measure in self.measures:
+            if measure.name.casefold() == normalized:
+                return measure
+        raise KeyError(f"measure {name!r} does not exist in table {self.name!r}")
+
+
+class Relationship(BaseModel):
+    """Relationship contract.
+
+    For one-to-many relationships, `fromTable/fromColumn` is the many/foreign-key
+    side and `toTable/toColumn` is the one/key side. A single-direction filter
+    therefore propagates from `toTable` to `fromTable`.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    name: str = Field(min_length=1)
+    from_table: str = Field(min_length=1, alias="fromTable")
+    from_column: str = Field(min_length=1, alias="fromColumn")
+    to_table: str = Field(min_length=1, alias="toTable")
+    to_column: str = Field(min_length=1, alias="toColumn")
+    cardinality: RelationshipCardinality
+    filter_direction: FilterDirection = Field(
+        default=FilterDirection.SINGLE, alias="filterDirection"
+    )
+    active: bool = True
+
 
 class SemanticModel(VersionedResource):
     tables: list[Table] = Field(default_factory=list)
-    relationships: list[dict[str, Any]] = Field(default_factory=list)
+    relationships: list[Relationship] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def unique_table_names(self) -> "SemanticModel":

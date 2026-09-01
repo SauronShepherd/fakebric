@@ -1,4 +1,17 @@
-from .schema import Column, DataSource, DataSourceType, DataType, Measure, SemanticModel, Table
+from .schema import (
+    Column,
+    DataSource,
+    DataSourceType,
+    DataType,
+    DependencyKind,
+    DependencyRef,
+    FilterDirection,
+    Measure,
+    Relationship,
+    RelationshipCardinality,
+    SemanticModel,
+    Table,
+)
 from .sources import (
     ColumnInference,
     ConversionError,
@@ -13,6 +26,15 @@ from .sources import (
     dataset_statistics,
     infer_schema,
 )
+from .validator import (
+    ValidationIssue,
+    ValidationReport,
+    ValidationSeverity,
+    build_dependency_graph,
+    build_filter_graph,
+    propagated_tables,
+    validate_model,
+)
 
 __all__ = [
     "Column",
@@ -23,15 +45,27 @@ __all__ = [
     "DataType",
     "DatasetProfile",
     "DatasetStatistics",
+    "DependencyKind",
+    "DependencyRef",
+    "FilterDirection",
     "LoadedDataset",
     "Measure",
     "MissingColumnError",
+    "Relationship",
+    "RelationshipCardinality",
     "SemanticModel",
     "SourceError",
     "SourceLoader",
     "SourceSecurityError",
     "Table",
+    "ValidationIssue",
+    "ValidationReport",
+    "ValidationSeverity",
+    "build_dependency_graph",
+    "build_filter_graph",
     "convert_value",
     "dataset_statistics",
     "infer_schema",
+    "propagated_tables",
+    "validate_model",
 ]
