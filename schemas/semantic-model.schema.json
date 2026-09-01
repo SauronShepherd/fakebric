@@ -1,0 +1,25 @@
+{
+  "$defs": {
+    "LifecycleState": {
+      "enum": ["Draft", "Published", "Archived"],
+      "title": "LifecycleState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "version": {"default": "1.0", "title": "Version", "type": "string"},
+    "id": {"minLength": 1, "title": "Id", "type": "string"},
+    "name": {"minLength": 1, "title": "Name", "type": "string"},
+    "description": {"default": "", "title": "Description", "type": "string"},
+    "revision": {"default": 1, "minimum": 1, "title": "Revision", "type": "integer"},
+    "state": {"$ref": "#/$defs/LifecycleState", "default": "Draft"},
+    "createdAt": {"format": "date-time", "title": "Createdat", "type": "string"},
+    "updatedAt": {"format": "date-time", "title": "Updatedat", "type": "string"},
+    "tables": {"items": {"additionalProperties": true, "type": "object"}, "title": "Tables", "type": "array"},
+    "relationships": {"items": {"additionalProperties": true, "type": "object"}, "title": "Relationships", "type": "array"}
+  },
+  "required": ["id", "name"],
+  "title": "SemanticModel",
+  "type": "object"
+}
